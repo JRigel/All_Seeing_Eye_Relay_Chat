@@ -1,3 +1,0 @@
-{"type":"[대화]","timestamp":"2015.02.08.13.01.08","chan":"#ubuntu","nick":"Clockwork_","msg":"I even checked the label on it"}
-{"type":"[호출]","timestamp":"2015.02.08.13.01.17","chan":"#openssm","nick":"asirc1","msg":"maeryo:"}
-{"type":"[대화]","timestamp":"2015.02.08.13.01.24","chan":"#ubuntu","nick":"daftykins","msg":"can only suggest googling the lspci entry name / device ID"}
