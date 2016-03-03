@@ -1,0 +1,26 @@
+정보:/w $$1
+-
+귓속말:/query $$1
+파일전송:{ /.notice $$1 $logo 파일 전송을 준비중입니다. | /dcc send $$1 }
+DCC 채팅:/dcc chat $*
+IP로 파일전송:{ /dcc send $remove($address($snick(#),2), *!*@) $+ :59 $$file="파일을 선택하세요" }
+IP로 채팅연결:{ /dcc chat $remove($address($snick(#),2), *!*@) }
+-
+CTCP
+.버전:/ctcp $$1 version
+.업타임:/ctcp $$1 uptime
+.아이피:/ctcp $$1 ip
+.운영체제:/ctcp $$1 os
+.시간:/ctcp $$1 time
+.핑:/ctcp $$1 ping
+.핑거:/ctcp $$1 finger
+-
+옵주기:raw -q mode # +oooo $$1 $2 $3 $4 | raw -q mode # +ooo $$5 $6 $7 | raw -q mode # +ooo $$8 $9 $10 | raw -q mode # +ooo $$11 $12 $13 | raw -q mode # +ooo $$14 $15 $16 | raw -q mode # +ooo $$17 $18 $19 | raw -q mode # +ooo $$20 $21 $22 | raw -q mode # +ooo $$23 $24 $25 | raw -q mode # +ooo $$26 $27 $28 | raw -q mode # +ooo $$29 $30 $31 | raw -q mode # +ooo $$32 $33 $34 | raw -q mode # +ooo $$35 $36 $37 | raw -q mode # +ooo $$38 $39 $40
+옵뺏기:raw -q mode # -oooo $$1 $2 $3 $4 | raw -q mode # -ooo $$5 $6 $7 | raw -q mode # -ooo $$8 $9 $10 | raw -q mode # -ooo $$11 $12 $13 | raw -q mode # -ooo $$14 $15 $16 | raw -q mode # -ooo $$17 $18 $19 | raw -q mode # -ooo $$20 $21 $22 | raw -q mode # -ooo $$23 $24 $25 | raw -q mode # -ooo $$26 $27 $28 | raw -q mode # -ooo $$29 $30 $31 | raw -q mode # -ooo $$32 $33 $34 | raw -q mode # -ooo $$35 $36 $37 | raw -q mode # -ooo $$38 $39 $40
+보이스 주기:raw -q mode # +vvvv $$1 $2 $3 $4 | raw -q mode # +vvv $$5 $6 $7 | raw -q mode # +vvv $$8 $9 $10 | raw -q mode # +vvv $$11 $12 $13 | raw -q mode # +vvv $$14 $15 $16 | raw -q mode # +vvv $$17 $18 $19 | raw -q mode # +vvv $$20 $21 $22 | raw -q mode # +vvv $$23 $24 $25 | raw -q mode # +vvv $$26 $27 $28 | raw -q mode # +vvv $$29 $30 $31 | raw -q mode # +vvv $$32 $33 $34 | raw -q mode # +vvv $$35 $36 $37 | raw -q mode # +vvv $$38 $39 $40
+보이스 뺏기:raw -q mode # -vvvv $$1 $2 $3 $4 | raw -q mode # -vvv $$5 $6 $7 | raw -q mode # -vvv $$8 $9 $10 | raw -q mode # -vvv $$11 $12 $13 | raw -q mode # -vvv $$14 $15 $16 | raw -q mode # -vvv $$17 $18 $19 | raw -q mode # -vvv $$20 $21 $22 | raw -q mode # -vvv $$23 $24 $25 | raw -q mode # -vvv $$26 $27 $28 | raw -q mode # -vvv $$29 $30 $31 | raw -q mode # -vvv $$32 $33 $34 | raw -q mode # -vvv $$35 $36 $37 | raw -q mode # -vvv $$38 $39 $40
+킥: { kick $chan $$1 Kick }
+밴: { mode $chan +b $address($1,2) }
+킥밴: { mode $chan +b $address($1,2) | kick $chan $1 Kickban }
+빵글이로 킥: /msg ^^ 킥 # $$1
+빵글이로 킥밴: /msg ^^ 밴 # $1 336

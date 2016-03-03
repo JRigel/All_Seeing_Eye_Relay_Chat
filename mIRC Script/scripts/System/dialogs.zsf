@@ -1,0 +1,964 @@
+alias iconpath {
+  if ($isfile($readini($cfgfile,사용자,아이콘)) == $true) { return $readini($cfgfile,사용자,아이콘) }
+  else { return $mircdiretc\asirc.ico }
+}
+
+;; 자동조인 채널 리스트 컨트롤러 다이얼로그 ;;
+dialog Autojoin_Controller {
+  title "자동조인 컨트롤러"
+  icon $iconpath
+  size -1 -1 85 127
+  option dbu
+  list 10, 10 11 64 68, size vsbar
+  box "채널 리스트", 1, 4 2 76 81
+  button "채널 추가", 20, 3 93 31 11, flat
+  button "채널 삭제", 30, 3 104 31 11, flat
+  button "모두 삭제", 50, 3 115 31 11, flat
+  text "[ 채널 정보 ]", 3, 43 85 35 8
+  text "[ 메 뉴 ]", 2, 8 85 22 8
+  text "총인원 :", 4, 42 94 22 8
+  text " ∞", 60, 63 94 19 8
+  text "방장수 :", 5, 42 102 22 8
+  text " ∞", 70, 63 103 19 8
+  text " ∞", 80, 63 110 19 8
+  text "보이스 :", 6, 42 110 22 8
+  text "일반인 :", 7, 42 118 22 8
+  text " ∞", 90, 63 118 19 8
+  button "취소", 3000, 0 0 0 0, cancel
+}
+
+on *:dialog:Autojoin_Controller:init:0: { aj_ctr.list }
+on *:dialog:Autojoin_Controller:sclick:10:{ aj_ctr.cpchk }
+on *:dialog:Autojoin_Controller:sclick:20:{
+  if ($readini(autojoin.txt,$network,$readini(autojoin.txt,$network,limit)) != $null) {
+    return $input($network 네트워크의 $+ $crlf $+ 입실 제한 수를 넘을 수 없습니다.,ohd,요청 오류)
+    halt
+  }
+  else {
+    var %tg.ct = $input(추가할 채널명을 입력해주세요.,eo,채널명 입력)
+    if (%tg.ct != $null) {
+      var %tg.c = $iif($left(%tg.ct,1) !isin $chantypes,$chr(35) $+ %tg.ct,%tg.ct)
+      if ($left(%tg.c,1) == $chr(38)) {
+        return $input(해당 타입의 채널 추가는 지원되지 않습니다.,ohd,요청 오류)
+        halt
+      }
+      else { var %i = 1 }
+      :aj_ctr.rpchk
+      if ($readini(autojoin.txt,$network,%i) != $null) {
+        if ($readini(autojoin.txt,$network,%i) != %tg.c) { inc %i | goto aj_ctr.rpchk }
+        else { return $input(이미 같은 이름의 채널이 $+ $crlf $+ $network $&
+          네트워크 자동조인 리스트에 존재합니다.,ohd,요청 오류) | halt }
+      }
+      else {
+        writeini -n autojoin.txt $network %i %tg.c
+        if ($readini($cfgfile,설정,자동조인) == 자동) {
+          writeini -n $cfgfile 설정 자동조인 수동
+          if ($me !ison %tg.c) join %tg.c
+          writeini -n $cfgfile 설정 자동조인 자동
+        }
+        if ($dialog(Autojoin_Controller) != $null) did -a Autojoin_Controller 10 %tg.c
+      }
+      halt
+    }
+    elseif (%tg.ct == $null) { return $input(추가할 채널의 이름을 입력해주세요.,owd,요청 오류) }
+  }
+}
+on *:dialog:Autojoin_Controller:sclick:30:{
+  var %i = 1, %tg.c = $did(Autojoin_Controller,10).seltext
+  :aj_ctr.extchk
+  if ($readini(autojoin.txt,$network,%i) != $null) {
+    if ($readini(autojoin.txt,$network,%i) != %tg.c) { inc %i | goto aj_ctr.extchk }
+    else {
+      remini autojoin.txt $network %i
+      var %ai = $calc(%i + 1)
+      :aj_ctr.ovd
+      if ($readini(autojoin.txt,$network,%ai) != $null) {
+        writeini -n autojoin.txt $network %i $readini(autojoin.txt,$network,%ai)
+        inc %i | inc %ai | goto aj_ctr.ovd
+      }
+      remini autojoin.txt $network %i
+      if ($readini($cfgfile,설정,자동조인) == 자동) {
+        writeini -n $cfgfile 설정 자동조인 수동
+        if ($me ison %tg.c) .part %tg.c
+        writeini -n $cfgfile 설정 자동조인 자동
+      }
+      aj_ctr.list
+    }
+  }
+}
+on *:dialog:Autojoin_Controller:sclick:40:{ join $did(Autojoin_Controller,10).seltext }
+on *:dialog:Autojoin_Controller:sclick:50:{
+  var %aj_ctr.dlcnf = $input(이 명령을 수행하게 되면 $+ $crlf $+ $&
+    자동조인이 설정된 모든 채널이 삭제됩니다. $+ $crlf $+ $&
+    그래도 명령을 수행하시겠습니까?,idy,질문)
+  if (%aj_ctr.dlcnf == $true) {
+    var %lim.copy = $readini(autojoin.txt,$network,limit)
+    remini autojoin.txt $network
+    writeini -n autojoin.txt $network limit %lim.copy
+    if ($readini($cfgfile,설정,자동조인) == 자동) {
+      writeini -n $cfgfile 설정 자동조인 수동
+      .partall
+      writeini -n $cfgfile 설정 자동조인 자동
+    }
+    if ($dialog(Autojoin_Controller) != $null) did -r Autojoin_Controller 10
+  }
+}
+
+alias -l aj_ctr.list {
+  did -r Autojoin_Controller 10
+  var %i = 1
+  :aj_ctr.read
+  if ($readini(autojoin.txt,$network,%i) != $null) { did -a Autojoin_Controller 10 $readini(autojoin.txt,$network,%i) | inc %i | goto aj_ctr.read }
+}
+alias -l aj_ctr.cpchk {
+  did -ra Autojoin_Controller 60 　 $+ $nick($did(Autojoin_Controller,10).seltext,0)
+  did -ra Autojoin_Controller 70 　 $+ $opnick($did(Autojoin_Controller,10).seltext,0)
+  did -ra Autojoin_Controller 80 　 $+ $vnick($did(Autojoin_Controller,10).seltext,0)
+  did -ra Autojoin_Controller 90 　 $+ $nopnick($did(Autojoin_Controller,10).seltext,0)
+}
+
+
+;; 단축 설정 다이얼로그 입니다 ;;
+dialog sc_d {
+  title "단축 실행 설정창"
+  icon $iconpath
+  size -1 -1 270 188
+  option dbu
+  list 100, 5 15 116 81, size vsbar
+  edit "", 400, 4 116 59 10
+  edit "", 600, 4 135 117 10, read autohs
+  text "[ 명령어 ]", 5, 5 108 42 7
+  text "[ 경로 ]", 7, 5 127 25 7
+  button "경로설정", 700, 93 116 27 10, flat
+  button "저장", 500, 67 116 23 10, flat
+  text "단축 명령어를 실행할 때는 기본 명령어의 프리픽스인 느낌표(!)와 구분하기 위하여 사용자 임의의 프리픽스를 설정하여 사용하실 수 있습니다.                                                                                                                             예)   @웹사이트     or     $레이싱게임", 2, 133 152 135 34
+  check "-P 스위치 (경로에서 실행)", 800, 6 98 79 10, flat
+  button "초기화", 900, 123 62 26 15, flat
+  box " 단축 추가 목록 ", 3, 2 0 266 147
+  list 4, 150 15 115 81, size vsbar
+  text "[ 명령어 ]", 8, 150 108 42 7
+  edit "", 10, 149 116 59 10
+  button "저장", 11, 211 116 23 10, flat
+  button "주소설정", 13, 237 116 27 10, flat
+  edit http://, 15, 149 135 115 10, read autohs
+  button "닫기", 12, 123 81 26 15, flat cancel
+  button "삭제하기", 300, 123 43 26 15, flat
+  button "실행하기", 200, 123 24 26 15, flat
+  text "<실행 파일>", 1, 7 8 42 7
+  text "<웹페이지>", 18, 153 8 42 7
+  text "[ 주소 ]", 14, 150 127 25 7
+  check "새 창에서 열기", 16, 152 98 79 10, flat
+  box "프리픽스 설정", 6, 2 149 129 37
+  radio "@", 9, 4 159 17 8
+  radio "$", 17, 4 166 16 8
+  radio "%", 19, 4 174 17 8
+  radio "^", 20, 24 159 15 8
+  radio "`", 21, 24 167 15 8
+  radio "*", 22, 24 174 14 8
+  radio "-", 23, 42 159 14 8
+  radio "~", 24, 42 167 16 8
+  radio "=", 25, 42 174 16 8
+  text "프리픽스를 설정하시면 임의로 단축 추가한 명령어에 선택하신 프리픽스로 실행하실 수 있습니다.", 26, 60 156 68 26
+}
+dialog jbd {
+  title "중복"
+  size -1 -1 119 27
+  option dbu
+  button "확인", 1, 40 14 37 12, cancel
+  text "이미 같은 이름으로 저장된 파일이 있습니다.", 2, 1 2 118 11
+}
+on *:dialog:sc_d:init:*:{
+  did -ra sc_d 15 %scj http://
+  var %명령어.줄번호 = $read(sc.ini,r,[단축]), %명령어.줄번호 = $calc($readn + 1)
+  while (%명령어.줄번호 <= $lines(sc.ini)) {
+    if (http:// !isin $gettok($read(sc.ini,%명령어.줄번호),2,61)) {
+      did -a sc_d 100 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+    }
+    else {
+      did -a sc_d 4 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+    }
+    inc %명령어.줄번호 1
+  }
+  if ($readini($cfgfile,설정,프리픽스) == @) { did -c sc_d 9 }
+  elseif ($readini($cfgfile,설정,프리픽스) == $) { did -c sc_d 17 }
+  elseif ($readini($cfgfile,설정,프리픽스) == %) { did -c sc_d 19 }
+  elseif ($readini($cfgfile,설정,프리픽스) == ^) { did -c sc_d 20 }
+  elseif ($readini($cfgfile,설정,프리픽스) == `) { did -c sc_d 21 }
+  elseif ($readini($cfgfile,설정,프리픽스) == *) { did -c sc_d 22 }
+  elseif ($readini($cfgfile,설정,프리픽스) == -) { did -c sc_d 23 }
+  elseif ($readini($cfgfile,설정,프리픽스) == ~) { did -c sc_d 24 }
+  elseif ($readini($cfgfile,설정,프리픽스) == =) { did -c sc_d 25 }
+}
+on *:dialog:sc_d:sclick:*: {
+  if ($did == 9) { .writeini -n $cfgfile 설정 프리픽스 @ }
+  elseif ($did == 17) { .writeini -n $cfgfile 설정 프리픽스 $ }
+  elseif ($did == 19) { .writeini -n $cfgfile 설정 프리픽스 % }
+  elseif ($did == 20) { .writeini -n $cfgfile 설정 프리픽스 ^ }
+  elseif ($did == 21) { .writeini -n $cfgfile 설정 프리픽스 ` }
+  elseif ($did == 22) { .writeini -n $cfgfile 설정 프리픽스 * }
+  elseif ($did == 23) { .writeini -n $cfgfile 설정 프리픽스 - }
+  elseif ($did == 24) { .writeini -n $cfgfile 설정 프리픽스 ~ }
+  elseif ($did == 25) { .writeini -n $cfgfile 설정 프리픽스 = }
+  elseif ($did == 100) {
+    did -ra sc_d 400 $did(sc_d,100).seltext
+    did -u sc_d 4
+    if ($left($readini(sc.ini,단축,$did(sc_d,100).seltext),1) == $chr(47)) {
+      did -ra sc_d 600 $gettok($readini(sc.ini,단축,$did(sc_d,100).seltext),1,47)
+      if ($did(sc_d,800).state == 0) {
+        did -c sc_d 800
+      }
+    }
+    if ($left($readini(sc.ini,단축,$did(sc_d,100).seltext),1) != $chr(47)) {
+      did -ra sc_d 600 $readini(sc.ini,단축,$did(sc_d,100).seltext)
+      if ($did(sc_d,800).state == 1) {
+        did -u sc_d 800
+      }
+    }
+  }
+  elseif ($did == 4) {
+    did -u sc_d 100
+    did -ra sc_d 10 $did(sc_d,4).seltext
+    if ($left($readini(sc.ini,단축,$did(sc_d,4).seltext),1) == $chr(42)) {
+      did -ra sc_d 15 $gettok($readini(sc.ini,단축,$did(sc_d,4).seltext),1,42)
+      if ($did(sc_d,16).state == 0) {
+        did -c sc_d 16
+      }
+    }
+    if ($left($readini(sc.ini,단축,$did(sc_d,4).seltext),1) != $chr(42)) {
+      did -ra sc_d 15 $readini(sc.ini,단축,$did(sc_d,4).seltext)
+      if ($did(sc_d,16).state == 1) {
+        did -u sc_d 16
+      }
+    }
+  }
+  elseif ($did == 200) {
+    if ($did(sc_d,100).seltext != $null) {
+      if ($left($readini(sc.ini,단축,$did(sc_d,100).seltext),1) == $chr(47)) {
+        run -p $gettok($readini(sc.ini,단축,$did(sc_d,100).seltext),1,47)
+      }
+      if ($left($readini(sc.ini,단축,$did(sc_d,100).seltext),1) != $chr(47)) {
+        run $readini(sc.ini,단축,$did(sc_d,100).seltext)
+      }
+    }
+    if ($did(sc_d,4).seltext != $null) {
+      if ($left($readini(sc.ini,단축,$did(sc_d,4).seltext),1) == $chr(42)) {
+        run iexplore $gettok($readini(sc.ini,단축,$did(sc_d,4).seltext),1,42)
+      }
+      if ($left($readini(sc.ini,단축,$did(sc_d,4).seltext),1) != $chr(42)) {
+        run $readini(sc.ini,단축,$did(sc_d,4).seltext)
+      }
+    }
+  }
+  elseif ($did == 300) {
+    if ($did(sc_d,100).seltext != $null) {
+      var %item $did(sc_d,100).seltext
+      remini sc.ini 단축 %item
+      did -r sc_d 100 | did -r sc_d 400 | did -r sc_d 600
+      var %명령어.줄 = $read(sc.ini,r,[단축]), %명령어.줄번호 = $calc($readn + 1)
+      while (%명령어.줄번호 <= $lines(sc.ini)) {
+        if (http:// !isin $gettok($read(sc.ini,%명령어.줄번호),2,61)) {
+          did -a sc_d 100 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+        }
+        inc %명령어.줄번호 1
+      }
+    }
+    if ($did(sc_d,4).seltext != $null) {
+      var %item $did(sc_d,4).seltext
+      remini sc.ini 단축 %item
+      did -r sc_d 4 | did -r sc_d 10 | did -r sc_d 15
+      var %명령어.줄 = $read(sc.ini,r,[단축]), %명령어.줄번호 = $calc($readn + 1)
+      while (%명령어.줄번호 <= $lines(sc.ini)) {
+        if (http:// isin $gettok($read(sc.ini,%명령어.줄번호),2,61)) {
+          did -a sc_d 4 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+        }
+        inc %명령어.줄번호 1
+      }
+    }
+  }
+  elseif ($did == 500) {
+    if ($did(sc_d,100).seltext != $null) {
+      if ($left($readini(sc.ini,단축,$did(sc_d,100).seltext),1) == $chr(47)) {
+        writeini sc.ini 단축 $did(sc_d,400) $did(sc_d,600)
+      }
+      else {
+        if ($left($readini(sc.ini,단축,$did(sc_d,100).seltext),1) != $chr(47)) {
+          writeini sc.ini 단축 $did(sc_d,400) $chr(47) $+ $did(sc_d,600)
+        }
+      }
+      did -r sc_d 100 | did -r sc_d 400 | did -r sc_d 600
+      var %명령어.줄 = $read(sc.ini,r,[단축]), %명령어.줄번호 = $calc($readn + 1)
+      while (%명령어.줄번호 <= $lines(sc.ini)) {
+        if (http:// !isin $gettok($read(sc.ini,%명령어.줄번호),2,61)) {
+          did -a sc_d 100 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+        }
+        inc %명령어.줄번호 1
+      }
+    }
+    else {
+      if ($readini(sc.ini,단축,$did(sc_d,400)) == $null) {
+        if ($did(sc_d,800).state == 0) {
+          writeini sc.ini 단축 $did(sc_d,400) $did(sc_d,600)
+        }
+        else {
+          writeini sc.ini 단축 $did(sc_d,400) $chr(47) $+ $did(sc_d,600)
+        }
+        did -r sc_d 100 | did -r sc_d 400 | did -r sc_d 600
+        var %명령어.줄 = $read(sc.ini,r,[단축]), %명령어.줄번호 = $calc($readn + 1)
+        while (%명령어.줄번호 <= $lines(sc.ini)) {
+          if (http:// !isin $gettok($read(sc.ini,%명령어.줄번호),2,61)) {
+            did -a sc_d 100 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+          }
+          inc %명령어.줄번호 1
+        }
+      }
+      else {
+        dialog -ma jbd jbd
+        halt
+      }
+    }
+  }
+  elseif ($did == 11) {
+    if ($did(sc_d,4).seltext != $null) {
+      if ($left($readini(sc.ini,단축,$did(sc_d,4).seltext),1) == $chr(42)) {
+        writeini sc.ini 단축 $did(sc_d,10) $did(sc_d,15)
+      }
+      else {
+        if ($left($readini(sc.ini,단축,$did(sc_d,4).seltext),1) != $chr(42)) {
+          writeini sc.ini 단축 $did(sc_d,10) $chr(42) $+ $did(sc_d,15)
+        }
+      }
+      did -r sc_d 4 | did -r sc_d 10 | did -r sc_d 15
+      var %명령어.줄 = $read(sc.ini,r,[단축]), %명령어.줄번호 = $calc($readn + 1)
+      while (%명령어.줄번호 <= $lines(sc.ini)) {
+        if (http:// isin $gettok($read(sc.ini,%명령어.줄번호),2,61)) {
+          did -a sc_d 4 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+        }
+        inc %명령어.줄번호 1
+      }
+    }
+    else {
+      if ($readini(sc.ini,단축,$did(sc_d,10)) == $null) {
+        if ($did(sc_d,16).state == 0) {
+          writeini sc.ini 단축 $did(sc_d,10) $did(sc_d,15)
+        }
+        else {
+          writeini sc.ini 단축 $did(sc_d,10) $chr(42) $+ $did(sc_d,15)
+        }
+        did -r sc_d 4 | did -r sc_d 10 | did -r sc_d 15
+        var %명령어.줄 = $read(sc.ini,r,[단축]), %명령어.줄번호 = $calc($readn + 1)
+        while (%명령어.줄번호 <= $lines(sc.ini)) {
+          if (http:// isin $gettok($read(sc.ini,%명령어.줄번호),2,61)) {
+            did -a sc_d 4 $gettok($read(sc.ini,%명령어.줄번호),1,61)
+          }
+          inc %명령어.줄번호 1
+        }
+      }
+      else {
+        dialog -ma jbd jbd
+        halt
+      }
+    }
+  }
+  elseif ($did == 700) {
+    if ($did(sc_d,100).seltext != $null) {
+      set %scg $file="경로를 지정해주세요." $readini(sc.ini,단축,$did(sc_d,100).seltext)*.*
+    }
+    else {
+      set %scg $file="경로를 지정해주세요." $mircdir*.*
+    }
+    if (%scg != $null) {
+      did -ra sc_d 600 %scg
+    }
+    unset %scg
+  }
+  elseif ($did == 900) {
+    did -r sc_d 100 | did -r sc_d 400 | did -r sc_d 600
+    did -r sc_d 4 | did -r sc_d 10 | did -r sc_d 15
+    remini sc.ini 단축
+  }
+  elseif ($did == 13) {
+    if (1) {
+      set %scj http:// $+ $?="웹페이지 주소를 입력하세요. (※ http://는 쓰지마세요.)"
+    }
+    if (%scj != $null) {
+      did -ra sc_d 15 %scj
+    }
+    unset %scj
+  }
+}
+alias sc { dialog -ma sc_d sc_d }
+
+alias setd.title {
+  if ($readini($cfgfile,사용자,타이틀바) != $null) { return $strip($title,burc) - Setting Dialog }
+  else return ASIRC 3 - Setting Dialog
+}
+
+;; 세팅 다이얼로그 입니다 ;;/
+dialog setting {
+  title "사용자 설정"
+  size -1 -1 211 146
+  option dbu
+  icon $iconpath, 0
+  tab "연결", 100, 0 0 212 133
+  box "대화명 설정", 110, 3 16 205 43, group tab 100
+  text "대화명 :", 117, 40 26 22 8, tab 100
+  text "다른 대화명 :", 118, 27 38 36 8, tab 100
+  edit "", 115, 63 25 75 10, tab 100
+  edit "", 116, 63 37 75 10, tab 100
+  text "사용하실 수 있는 닉네임의 길이는 영문 16자, 한글 8자 입니다.", 119, 22 50 166 8, tab 100
+  button "저장", 111, 144 32 22 9, tab 100 flat
+  box "NickServ 로그인 설정", 120, 3 61 100 66, group tab 100
+  text "ID :", 128, 17 75 22 8, tab 100
+  text "PW :", 129, 15 88 29 8, tab 100
+  edit "", 126, 32 74 56 10, tab 100
+  edit "", 127, 32 86 56 10, tab 100 pass
+  check "자동 로그인", 121, 33 98 43 9, tab 100
+  button "로그인", 123, 59 109 28 13, tab 100 flat
+  box "서버 선택 및 접속", 130, 108 61 100 66, group tab 100
+  combo 138, 124 72 69 10, tab 100 sort drop
+  combo 139, 124 84 69 10, tab 100 sort drop
+  check "멀티서버로 접속", 131, 125 97 68 9, tab 100
+  button "접속하기", 133, 124 109 32 12, tab 100 flat
+  button "접속끊기", 134, 162 109 32 12, tab 100 flat
+  button "저장", 122, 22 109 28 13, tab 100 flat
+  tab "커스텀", 200
+  box "텍스트 설정", 210, 3 16 205 60, group tab 200
+  text "로고", 231, 23 28 12 9, tab 200
+  text "풀로고", 232, 113 28 18 9, tab 200
+  text "말머리", 233, 113 40 18 9, tab 200
+  text "말꼬리", 234, 113 52 18 9, tab 200
+  text "타이틀바", 235, 11 40 30 9, tab 200
+  text "오류로고", 236, 11 52 30 9, tab 200
+  text "종료메시지", 237, 5 64 30 9, tab 200
+  edit "", 221, 36 26 52 10, tab 200 autohs
+  edit "", 222, 132 26 52 10, tab 200 autohs
+  edit "", 223, 132 38 52 10, tab 200 autohs
+  edit "", 224, 132 50 52 10, tab 200 autohs
+  edit "", 225, 36 38 52 10, tab 200 autohs
+  edit "", 226, 36 50 52 10, tab 200 autohs
+  edit "", 227, 36 62 52 10, tab 200 autohs
+  button "설정", 211, 90 26 18 10, tab 200
+  button "설정", 212, 186 26 18 10, tab 200
+  button "설정", 213, 186 38 18 10, tab 200
+  button "설정", 214, 186 50 18 10, tab 200
+  button "설정", 215, 90 38 18 10, tab 200
+  button "설정", 216, 90 50 18 10, tab 200
+  button "설정", 217, 90 62 18 10, tab 200
+  check "말머리 사용", 218, 120 63 40 9, tab 200
+  check "말꼬리 사용", 219, 164 63 40 9, tab 200
+  box "이미지 설정", 240, 3 78 205 53, group tab 200
+  icon 246, 5 86 56 28,  $mircexe, 0, tab 200
+  text "시작 이미지", 247, 62 85 32 7, tab 200
+  text "", 248, 62 91 40 6, tab 200
+  icon 249, 128 86 32 32,  $mircexe, 0, tab 200
+  text "아이콘", 250, 156 85 18 7, tab 200
+  button "찾아보기...", 241, 62 97 36 10, tab 200
+  button "초기화", 242, 62 108 36 10, tab 200
+  button "테스트", 243, 62 119 36 10, tab 200
+  button "찾아보기...", 244, 156 97 36 10, tab 200
+  button "초기화", 245, 156 108 36 10, tab 200
+  tab "매크로", 300
+  box "Shift + 기능키", 310, 3 16 205 42, group tab 300
+  combo 311, 26 26 24 10, tab 300 drop
+  edit "", 312, 8 38 105 10, tab 300 read
+  button "설정", 313, 115 38 24 10, tab 300
+  button "삭제", 314, 140 38 24 10, tab 300
+  text "Shift + ", 317, 8 28 18 8, tab 300
+  text "키를 누를 때 다음 문구가 입력됩니다.", 319, 54 28 100 8, tab 300
+  box "Ctrl + 기능키", 320, 3 64 205 42, group tab 300
+  combo 321, 26 74 24 10, tab 300 drop
+  edit "", 322, 8 86 105 10, tab 300 read
+  button "설정", 323, 115 86 24 10, tab 300
+  button "삭제", 324, 140 86 24 10, tab 300
+  text "Ctrl + ", 327, 8 76 18 8, tab 300
+  text "키를 누를 때 다음 문구가 입력됩니다.", 329, 54 76 100 8, tab 300
+  text "해당 조합의 키를 누르면 지정된 문구가 바로 전송됩니다. (칼라 가능)", 330, 8 111 206 8, tab 300
+  text "일반적으로 편리하나, 특정 문구의 경우 주의를 요합니다.", 331, 8 119 206 8, tab 300
+  tab "웹", 500
+  box "웹 브라우저 설정", 510, 3 16 205 68, group tab 500
+  radio "Microsoft Internet Explorer", 511, 8 26 73 9, tab 500
+  radio "Google Chrome", 512, 8 35 45 9, tab 500
+  radio "기타 웹 브라우저", 513, 110 26 54 9, tab 500
+  button "찾아보기", 514, 170 26 27 9, disable tab 500
+  radio "지정하지 않음", 515, 110 35 46 9, tab 500
+  text "!웹 명령어실행시 실행될 브라우저를 선택합니다.", 516, 8 48 146 9, tab 500
+  text "새 프로세스로 실행되어 일정량의 리소스를 사용하므로", 517, 8 56 146 9, tab 500
+  text "Windows 기반은 가급적 지정하지 않는 것이 좋습니다.", 518, 8 64 144 9, tab 500
+  text "지정하지 않을 경우 Windows의 설정을 따릅니다.", 519, 8 72 132 9, tab 500
+  tab "기타 기능", 600
+  box "무시 기능(이그노어)", 610, 3 16 205 32, group tab 600
+  check "쿼리(귓속말) 무시", 611, 8 24 56 9, tab 600
+  check "채널초대 무시", 612, 76 24 46 9, tab 600
+  check "CTCP 무시", 613, 133 24 36 9, tab 600
+  check "노티스(공지) 무시", 614, 8 34 56 9, tab 600
+  check "DCC(1:1 채팅 및 파일 수신) 무시", 615, 76 34 93 9, tab 600
+  tab "부가설정", 700
+  box "CTCP 공개설정", 710, 3 16 205 42, group tab 700
+  text "CTCP를 요청한 사용자에게 CTCP REPLY로 아래의 정보를 전송합니다.", 717, 8 24 180 9, tab 700
+  check "VERSION", 711, 8 34 32 9, tab 700
+  check "UPTIME", 712, 8 44 28 9, tab 700
+  check "IP", 713, 48 34 14 9, tab 700
+  check "OS", 714, 48 44 16 9, tab 700
+  check "TIME", 715, 76 34 21 9, tab 700
+  check "FINGER", 716, 76 44 28 9, tab 700
+  box "자동조인 방식 설정", 720, 3 60 100 67, tab 700
+  text "'자동으로 추가'를 선택할 경우", 727, 5 71 79 9, tab 700
+  text "채널에 입실할 경우 리스트에 추가,", 728, 5 79 92 9, tab 700
+  text "퇴실할 경우 리스트에서 삭제합니다.", 729, 5 87 98 9, tab 700
+  radio "자동으로 추가", 721, 14 99 50 9, group tab 700
+  radio "수동으로 추가 (기존 방식)", 722, 14 109 78 9, tab 700
+  box "Anti-Idle(유휴시간 갱신)", 730, 108 60 100 67, group tab 700
+  text "Anti-Idle 설정을 사용할 경우", 735, 114 68 80 8, tab 700
+  text "자신을 이그노어 목록에 추가한", 736, 114 76 84 8, tab 700
+  text "뒤에 자신에게 쿼리를 보냄으로써", 737, 114 84 90 8, tab 700
+  text "유휴시간을 초기화 합니다.(60초)", 738, 114 92 88 8, tab 700
+  radio "Anti-Idle 사용함", 731, 128 101 55 10, group tab 700
+  radio "Anti-Idle 사용 안함", 732, 128 111 62 10, tab 700
+  tab "폰 인증", 400
+  icon 3, 59 23 92 71,  $mircexe, 0, tab 400 noborder
+  edit "", 4, 59 111 50 10, tab 400 limit 4 center
+  button "인증", 5, 115 111 37 10, tab 400
+  text "인증 번호를 입력하세요.", 6, 73 100 68 8, tab 400
+  button "닫기", 2000, 176 134 32 11
+  button "IRC 강제종료", 1, 3 134 40 11
+  button "트레이 전환", 2, 47 134 37 11
+}
+
+alias -l setd.rsn {
+  var %i = 0, %it = 0
+  :sn.check
+  if ($readini(servers.ini,servers,n $+ %i) != $null) {
+    var %vt = $gettok($readini(servers.ini,servers,n $+ %i),4,58)
+    if ($findtok(%sn.lt,%vt,0,59) == $null) || ($findtok(%sn.lt,%vt,0,59) < 1) {
+      if (%i == 0) { %nst.cn = %vt }
+      if (%sn.lt == $null) { var %sn.lt = %vt }
+      elseif (%sn.lt != $null) { var %sn.lt = %sn.lt $+ $chr(59) $+ %vt }
+      inc %it | did -i $dname 138 %it %vt
+    }
+    inc %i | goto sn.check
+  }
+  var %i = 1, %l = $did(setting,138).lines
+  while (%i <= %l) {
+    if ($did(setting,138,%i).text == $network) {
+      %nst.cn = $did(setting,138,%i).text
+      %nl.cln = %i
+      break
+    }
+    else { inc %i }
+  }
+  setd.rsl
+}
+
+alias -l setd.rsl {
+  var %i = 0, %it = 0
+  if (%nst.cn != $null) { var %ns.c = %nst.cn | .unset %nst.cn }
+  :sl.check
+  if ($readini(servers.ini,servers,n $+ %i) != $null) {
+    if ($gettok($readini(servers.ini,servers,n $+ %i),4,58) == %ns.c) {
+      inc %it
+      did -i $dname 139 %it $gettok($readini(servers.ini,servers,n $+ %i),2,58)
+      if ($gettok($readini(servers.ini,servers,n $+ %i),2,58) == $server) { var %sl.cln = %it }
+    }
+    inc %i | goto sl.check
+  }
+  if (%nl.cln != $null) { did -c $dname 138 %nl.cln | unset %nl.cln }
+  if (%sl.cln != $null) { did -c $dname 139 %sl.cln }
+  else { if ($did(setting,138).seltext != $null) { did -c $dname 139 1 } }
+}
+
+alias -l setd.lcm {
+  did -r $dname $calc($1 + 1)
+  var %cm.akt
+  if ($1 == 311) %cm.akt = s
+  elseif ($1 == 321) %cm.akt = c
+  if ($custom_macro(%cm.akt $+ $did($1).seltext) != $null) {
+    did -a $dname $calc($1 + 1) $custom_macro(%cm.akt $+ $did($1).seltext)
+  }
+}
+
+on 1:dialog:setting:init:0: {
+  setd.rsn
+  did -g $dname 3 $mircdir\images\lock.png
+  if ($mnick != $null) { did -a setting 115 $mnick }
+  if ($anick != $null) { did -a setting 116 $anick }
+  if ($readini(login.ini,login,id) != $null) { did -a setting 126 $readini(login.ini,login,id) }
+  if ($readini(login.ini,login,ps) != $null) { did -a setting 127 $readini(login.ini,login,ps) }
+  if (($isfile(login.ini) == $true) && ($lines(login.ini) >= 2)) { did -c $dname 121 }
+
+  if ($logo != $null) { did -a $dname 221 $logo }
+  if ($logof != $null) { did -a $dname 222 $logof }
+  if ($sb != $null) { did -a $dname 223 $sb }
+  if ($se != $null) { did -a $dname 224 $se }
+  if ($title != $null) { did -a $dname 225 $title }
+  if ($erlogo != $null) { did -a $dname 226 $erlogo }
+  if ($quitm != $null) { did -a $dname 227 $quitm }
+  if ($readini($cfgfile,설정,말머리사용) == 켜짐) { did -c $dname 218 }
+  if ($readini($cfgfile,설정,말꼬리사용) == 켜짐) { did -c $dname 219 }
+  if (($isfile($readini($cfgfile,사용자,시작이미지)) == $true) && ($pic($readini($cfgfile,사용자,시작이미지)) > 0)) {
+    did -g $dname 246 " $+ $readini($cfgfile,사용자,시작이미지) $+ "
+    did -a $dname 248 $pic($readini($cfgfile,사용자,시작이미지)).width × $pic($readini($cfgfile,사용자,시작이미지)).height
+  }
+  elseif ($isfile($readini($cfgfile,사용자,시작이미지)) == $false) || ($pic($readini($cfgfile,사용자,시작이미지)) <= 0) {
+    if (($isfile($mircdirimages\logo.jpg) == $true) && ($pic($mircdirimages\logo.jpg) > 0)) { did -g $dname 246 " $+ $mircdirimages\logo.jpg $+ " }
+    else { did -bh $dname 246 }
+  }
+  if ($isfile($readini($cfgfile,사용자,아이콘)) == $true) { did -g $dname 249 " $+ $readini($cfgfile,사용자,아이콘) $+ " }
+  elseif ($isfile($readini($cfgfile,사용자,아이콘)) == $false) {
+    if ($isfile($mircdiretc\asirc.ico) == $true) { did -g $dname 249 " $+ $mircdiretc\asirc.ico $+ " }
+    else { did -bh $dname 249 }
+  }
+
+  var %i = 1
+  while (%i <= 12) { did -a $dname 311,321 F $+ %i | inc %i }
+  did -c $dname 311,321 1
+  setd.lcm 311 | setd.lcm 321
+
+  if ($readini($cfgfile,설정,웹브라우저) == 익스) { did -c $dname 511 }
+  elseif ($readini($cfgfile,설정,웹브라우저) == 크롬) { did -c $dname 512 }
+  elseif ($readini($cfgfile,설정,웹브라우저) == 사용자) {
+    var %wb.p = $readini($cfgfile,사용자,웹브라우저)
+    if (($gettok(%wb.p,$numtok(%wb.p,46),46) == exe) && ($isfile(%wb.p) == $true)) {
+    did -c $dname 513 | did -e $dname 514 }
+    else { writeini -n $cfgfile 설정 웹브라우저 미지정
+    remini $cfgfile 사용자 웹브라우저 | did -c $dname 515 }
+  }
+  elseif ($readini($cfgfile,설정,웹브라우저) == 미지정) { did -c $dname 515 }
+
+  if ($readini($cfgfile,설정,웹주소복사) == 켜짐) { did -c $dname 522 }
+  elseif ($readini($cfgfile,설정,웹주소복사) == 꺼짐) { did -c $dname 521 }
+
+  if ($readini($cfgfile,설정,쿼리거부) == 켜짐) { did -c $dname 611 }
+  if ($readini($cfgfile,설정,초대거부) == 켜짐) { did -c $dname 612 }
+  if ($readini($cfgfile,설정,시티시피거부) == 켜짐) { did -c $dname 613 }
+  if ($readini($cfgfile,설정,노티스거부) == 켜짐) { did -c $dname 614 }
+  if ($readini($cfgfile,설정,디씨씨거부) == 켜짐) { did -c $dname 615 }
+
+  if ($readini($cfgfile,ctcp,version) == 켜짐) { did -c $dname 711 }
+  if ($readini($cfgfile,ctcp,uptime) == 켜짐) { did -c $dname 712 }
+  if ($readini($cfgfile,ctcp,ip) == 켜짐) { did -c $dname 713 }
+  if ($readini($cfgfile,ctcp,os) == 켜짐) { did -c $dname 714 }
+  if ($readini($cfgfile,ctcp,time) == 켜짐) { did -c $dname 715 }
+  if ($readini($cfgfile,ctcp,finger) == 켜짐) { did -c $dname 716 }
+
+  if ($readini($cfgfile,설정,자동조인) == 자동) { did -c $dname 721 }
+  elseif ($readini($cfgfile,설정,자동조인) == 수동) { did -c $dname 722 }
+
+  if ($readini($cfgfile,설정,안티아이들) == 켜짐) { did -c $dname 731 }
+  elseif ($readini($cfgfile,설정,안티아이들) == 꺼짐) { did -c $dname 732 }
+
+  if (%cfg.dl_fl == $true) { did -f setting 126 | unset %cfg.dl_fl }
+
+  if ($readini($cfgfile,설정,스마트폰) == 인증) { 
+    did -m $dname 4 
+    did -ra $dname 4 **** 
+    did -ra $dname 5 인증해제
+  }
+}
+
+on 1:dialog:setting:sclick:*:{
+  ;;irc 강제 종료
+  if ($did == 1) {
+    exit -n  
+  }
+
+  ;; 트레이 전환
+  if ($did == 2) {
+    showmirc -t 
+  }
+
+  ;;스마트폰 인증
+
+
+  if ($did == 5) {
+    if ($did(setting,5).text == 인증) {
+      if ($did(setting,4).text == $null) { echo -a $erlogo 인증 번호를 입력하세요. }
+      else { 
+        ;;인증 번호 전송
+        dde asirc_server "" [인증] $did($dname,4).text
+      }
+    }
+    else {
+      ;;인증 해제
+      dde asirc_server "" [인증해제]
+    }
+  }
+
+  if ($did == 111) {
+    nick $did(setting,115).text
+    mnick $did(setting,115).text
+    anick $did(setting,116).text
+  }
+
+  elseif ($did == 122) {
+    if ($did(setting,126).text != $null) { writeini login.ini login id $did(setting,126).text }
+    if ($did(setting,127).text != $null) { writeini login.ini login ps $did(setting,127).text }
+
+    if ($did(setting,121).state == 1) {
+      writeini login.ini login auto 1
+    }
+    else { writeini login.ini login auto 0 }
+  }
+
+  elseif ($did == 123) {
+    if ($did(setting,126).text != $null) { writeini login.ini login id $did(setting,126).text }
+    if ($did(setting,127).text != $null) { writeini login.ini login ps $did(setting,127).text }
+
+    if ($did(setting,121).state == 1) {
+      writeini login.ini login auto 1
+    }
+    else { writeini login.ini login auto 0 }
+    msg NickServ identify $did(setting,126).text $did(setting,127).text
+  }
+
+  elseif ($did == 133) {
+    if ($did(setting,131).state == 1) { server -m $did(setting,139).seltext }
+    else { server $did(setting,139).seltext }
+  }
+  elseif ($did == 134) { .disconnect }
+  elseif ($did == 138) {
+    did -r $dname 139
+    set %nst.cn $did($dname,138).seltext
+    setd.rsl
+  }
+
+  elseif ($did == 211) {
+    if ($did(setting,221).text != $logom) {
+      if ($did(setting,221).text != $null) {
+        var %setd.stf_l = $md5($ticks $+ LOGO)
+        writeini -n $cfgfile 사용자 로고 %setd.stf_l
+        var %t = $read($cfgfile,r,%setd.stf_l)
+        write -l $+ $readn $cfgfile 로고= $+ $did(setting,221).text
+      }
+      elseif ($did(setting,221).text == $null) {
+        remini $cfgfile 사용자 로고
+        did -a $dname 221 $logom
+      }
+    }
+  }
+  elseif ($did == 212) {
+    if ($did(setting,222).text != $logomf) {
+      if ($did(setting,222).text != $null) {
+        var %setd.stf_lf = $md5($ticks $+ LOGOF)
+        writeini -n $cfgfile 사용자 풀로고 %setd.stf_lf
+        var %t = $read($cfgfile,r,%setd.stf_lf)
+        write -l $+ $readn $cfgfile 풀로고= $+ $did(setting,222).text
+      }
+      elseif ($did(setting,222).text == $null) {
+        remini $cfgfile 사용자 풀로고
+        did -a $dname 221 $logomf
+      }
+    }
+  }
+  elseif ($did == 213) {
+    if ($did(setting,223).text != $null) {
+      var %setd.stf_sb = $md5($ticks $+ SB)
+      writeini -n $cfgfile 사용자 말머리 %setd.stf_sb
+      var %t = $read($cfgfile,r,%setd.stf_sb)
+      write -l $+ $readn $cfgfile 말머리= $+ $did(setting,223).text
+    }
+    elseif ($did(setting,223).text == $null) { remini $cfgfile 사용자 말머리 }
+  }
+  elseif ($did == 214) {
+    if ($did(setting,224).text != $null) {
+      var %setd.stf_se = $md5($ticks $+ SE)
+      writeini -n $cfgfile 사용자 말꼬리 %setd.stf_se
+      var %t = $read($cfgfile,r,%setd.stf_se)
+      write -l $+ $readn $cfgfile 말꼬리= $+ $did(setting,224).text
+    }
+    elseif ($did(setting,224).text == $null) { remini $cfgfile 사용자 말꼬리 }
+  }
+  elseif ($did == 215) {
+    if ($did(setting,225).text != $titlem) {
+      var %setd.stf_tt = $md5($ticks $+ TITLE)
+      writeini -n $cfgfile 사용자 타이틀바 %setd.stf_tt
+      var %t = $read($cfgfile,r,%setd.stf_tt)
+      write -l $+ $readn $cfgfile 타이틀바= $+ $did(setting,225).text
+    }
+    elseif ($did(setting,225).text == $null) {
+      remini $cfgfile 사용자 타이틀바
+      did -a $dname 225 $titlem
+    }
+    dll " $+ $mircdir\etc\mircustom.dll $+ " Titlebar -m $strip($title,burc)
+    dialog -t $dname $strip($title,burc) - Setting Dialog
+  }
+  elseif ($did == 216) {
+    if ($did(setting,226).text != $erlogom) {
+      var %setd.stf_er = $md5($ticks $+ ERROR)
+      writeini -n $cfgfile 사용자 에러 %setd.stf_er
+      var %t = $read($cfgfile,r,%setd.stf_er)
+      write -l $+ $readn $cfgfile 에러= $+ $did(setting,226).text
+    }
+    elseif ($did(setting,226).text == $null) {
+      remini $cfgfile 사용자 에러
+      did -r $dname 226 | did -a setting 226 $erlogom
+    }
+  }
+  elseif ($did == 217) {
+    if ($did(setting,227).text != $null) {
+      var %setd.stf_qt = $md5($ticks $+ QUIT)
+      writeini -n $cfgfile 사용자 종료 %setd.stf_qt
+      var %t = $read($cfgfile,r,%setd.stf_qt)
+      write -l $+ $readn $cfgfile 종료= $+ $did(setting,227).text
+    }
+    elseif ($did(setting,227).text == $null) { remini $cfgfile 사용자 종료 }
+  }
+  elseif ($did == 218) {
+    if ($did(218).state == 0) { writeini -n $cfgfile 설정 말머리사용 꺼짐 }
+    elseif ($did(218).state == 1) { writeini -n $cfgfile 설정 말머리사용 켜짐 }
+  }
+  elseif ($did == 219) {
+    if ($did(219).state == 0) { writeini -n $cfgfile 설정 말꼬리사용 꺼짐 }
+    elseif ($did(219).state == 1) { writeini -n $cfgfile 설정 말꼬리사용 켜짐 }
+  }
+
+  elseif ($did == 241) {
+    var %si.fs = $sfile($mircdir*.jpg,시작 창에 띄울 이미지를 선택해주세요.,확인)
+    if (($isfile(%si.fs) == $true) && ($pic(%si.fs) > 0)) {
+      writeini -n $cfgfile 사용자 시작이미지 %si.fs
+      did -g $dname 246 " $+ %si.fs $+ "
+      did -ev $dname 246
+      did -i $dname 248 1 $pic(%si.fs).width × $pic(%si.fs).height
+    }
+  }
+  elseif ($did == 242) {
+    if ($readini($cfgfile,사용자,시작이미지) != $null) { .remini $cfgfile 사용자 시작이미지 }
+    if (($isfile($mircdirimages\logo.jpg) == $true) && ($pic($mircdirimages\logo.jpg) > 0)) {
+      did -g $dname 246 " $+ $mircdirimages\logo.jpg $+ "
+      did -ev $dname 246
+      did -r $dname 248
+    }
+    else { did -bh $dname 246 }
+  }
+  elseif ($did == 243) { main_i }
+  elseif ($did == 244) {
+    var %icon.fs = $sfile($mircdir*.ico,사용할 아이콘을 선택해주세요.,확인)
+    if ($isfile(%icon.fs) == $true) {
+      writeini -n $cfgfile 사용자 아이콘 %icon.fs
+      did -g $dname 248 " $+ %icon.fs $+ "
+      did -ev $dname 248
+      dll " $+ $mircdir\etc\mircustom.dll $+ " SetIcon -m %icon.fs
+      dialog -x $dname | dialog -ma setting setting | did -c $dname 200
+    }
+  }
+  elseif ($did == 245) {
+    if ($readini($cfgfile,사용자,아이콘) != $null) { .remini $cfgfile 사용자 아이콘 }
+    if ($isfile($mircdiretc\asirc.ico) == $true) {
+      did -g $dname 249 " $+ $mircdiretc\asirc.ico $+ " | did -ev $dname 249
+      dll " $+ $mircdir\etc\mircustom.dll $+ " SetIcon -m $mircdiretc\asirc.ico
+      dialog -x $dname | dialog -ma setting setting | did -c $dname 200
+    }
+    else { did -bh $dname 248 }
+  }
+
+  elseif ($did == 311) { setd.lcm $did }
+  elseif ($did == 313) {
+    var %smtt = $input(매크로로 지정할 문구를 입력해주세요.,aeu,입력 요청)
+    if (%smtt != $null) {
+      var %smtk = $did(311).text, %setd.stf_smt = $md5($ticks $+ s $+ %smtk)
+      writeini -n $cfgfile 매크로 s $+ %smtk %setd.stf_smt
+      var %t = $read($cfgfile,r,%setd.stf_smt)
+      write -l $+ $readn $cfgfile s $+ %smtk $+ = $+ %smtt
+      setd.lcm 311
+    }
+  }
+  elseif ($did == 314) { .remini $cfgfile 매크로 s $+ $did(311).text | setd.lcm 311 }
+  elseif ($did == 321) { setd.lcm $did }
+  elseif ($did == 323) {
+    var %cmtt = $input(매크로로 지정할 문구를 입력해주세요.,aeu,입력 요청)
+    if (%cmtt != $null) {
+      var %cmtk = $did(321).text, %setd.stf_cmt = $md5($ticks $+ c $+ %cmtk)
+      writeini -n $cfgfile 매크로 c $+ %cmtk %setd.stf_cmt
+      var %t = $read($cfgfile,r,%setd.stf_cmt)
+      write -l $+ $readn $cfgfile c $+ %cmtk $+ = $+ %cmtt
+      setd.lcm 321
+    }
+  }
+  elseif ($did == 324) { .remini $cfgfile 매크로 c $+ $did(321).text | setd.lcm 321 }
+
+  elseif ($did == 511) { writeini -n $cfgfile 설정 웹브라우저 익스 | .did -b $dname 514 }
+  elseif ($did == 512) { writeini -n $cfgfile 설정 웹브라우저 크롬 | .did -b $dname 514 }
+  elseif ($did == 513) {
+    if ($readini($cfgfile,설정,웹브라우저) != 사용자) {
+      if ($readini($cfgfile,설정,웹브라우저) == 익스) var %setd.st = 511
+      elseif ($readini($cfgfile,설정,웹브라우저) == 크롬) var %setd.st = 512
+      elseif ($readini($cfgfile,설정,웹브라우저) == 미지정) var %setd.st = 515
+      :wb.pchk
+      var %wb.p = $sfile(*.exe,웹 브라우저 경로 설정,확인)
+      if ($isfile(%wb.p) != $true) || ($gettok(%wb.p,$numtok(%wb.p,46),46) != exe) {
+        if (%wb.p != $null) { var %setd.t = $input(올바른 실행 파일을 선택하십시오.,owd,오류) | goto wb.pchk }
+        else { did -u $dname 513 | did -c $dname %setd.st | did -f $dname %setd.st }
+      }
+      else {
+        writeini -n $cfgfile 설정 웹브라우저 사용자
+        writeini -n $cfgfile 사용자 웹브라우저 %wb.p
+        did -e $dname 514
+      }
+    }
+  }
+  elseif ($did == 515) { writeini -n $cfgfile 설정 웹브라우저 미지정 | .did -b $dname 514 }
+  elseif ($did == 514) {
+    if ($readini($cfgfile,설정,웹브라우저) == 사용자) {
+      :wb.pchk2
+      var %wb.p = $sfile(*.exe,웹 브라우저 경로 설정,확인)
+      if ($isfile(%wb.p) != $true) || ($gettok(%wb.p,$numtok(%wb.p,46),46) != exe) {
+        if (%wb.p != $null) { var %setd.t = $input(올바른 실행 파일을 선택하십시오.,owd,오류) | goto wb.pchk2 }
+      }
+      else { writeini -n $cfgfile 사용자 웹브라우저 %wb.p }
+    }
+  }
+
+  elseif ($did == 521) { writeini -n $cfgfile 설정 웹주소복사 꺼짐 }
+  elseif ($did == 522) { writeini -n $cfgfile 설정 웹주소복사 켜짐 }
+
+  elseif ($did == 611) {
+    if ($did($did).state == 0) { writeini -n $cfgfile 설정 쿼리거부 꺼짐 | .ignore -pr *!*@* }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile 설정 쿼리거부 켜짐 | .ignore -p *!*@* }
+  }
+  elseif ($did == 612) {
+    if ($did($did).state == 0) { writeini -n $cfgfile 설정 초대거부 꺼짐 | .ignore -ir *!*@* }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile 설정 초대거부 켜짐 | .ignore -i *!*@* }
+  }
+  elseif ($did == 613) {
+    if ($did($did).state == 0) { writeini -n $cfgfile 설정 시티시피거부 꺼짐 | .ignore -tr *!*@* }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile 설정 시티시피거부 켜짐 | .ignore -t *!*@* }
+  }
+  elseif ($did == 614) {
+    if ($did($did).state == 0) { writeini -n $cfgfile 설정 노티스거부 꺼짐 | .ignore -nr *!*@* }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile 설정 노티스거부 켜짐 | .ignore -n *!*@* }
+  }  
+  elseif ($did == 615) {
+    if ($did($did).state == 0) { writeini -n $cfgfile 설정 디씨씨거부 꺼짐 | .ignore -dr *!*@* }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile 설정 디씨씨거부 켜짐 | .ignore -d *!*@* }
+  }
+
+  elseif ($did == 711) {
+    if ($did($did).state == 0) { writeini -n $cfgfile ctcp version 꺼짐 }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile ctcp version 켜짐 }
+  } 
+  elseif ($did == 712) {
+    if ($did($did).state == 0) { writeini -n $cfgfile ctcp uptime 꺼짐 }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile ctcp uptime 켜짐 }
+  }
+  elseif ($did == 713) {
+    if ($did($did).state == 0) { writeini -n $cfgfile ctcp ip 꺼짐 }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile ctcp ip 켜짐 }
+  } 
+  elseif ($did == 714) {
+    if ($did($did).state == 0) { writeini -n $cfgfile ctcp os 꺼짐 }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile ctcp os 켜짐 }
+  } 
+  elseif ($did == 715) {
+    if ($did($did).state == 0) { writeini -n $cfgfile ctcp time 꺼짐 }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile ctcp time 켜짐 }
+  }
+  elseif ($did == 716) {
+    if ($did($did).state == 0) { writeini -n $cfgfile ctcp finger 꺼짐 }
+    elseif ($did($did).state == 1) { writeini -n $cfgfile ctcp finger 켜짐 }
+  }
+  elseif ($did == 721) { writeini -n $cfgfile 설정 자동조인 자동 }
+  elseif ($did == 722) { writeini -n $cfgfile 설정 자동조인 수동 }
+  elseif ($did == 731) { writeini -n $cfgfile 설정 안티아이들 켜짐 | anti-idle }
+  elseif ($did == 732) { writeini -n $cfgfile 설정 안티아이들 꺼짐 | disable_anti-idle }
+
+  elseif ($did == 2000) { dialog -x $dname }
+}

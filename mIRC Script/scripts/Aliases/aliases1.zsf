@@ -1,0 +1,37 @@
+;; 메인 로고.
+logom { return 1[4A7S12IRC1] }
+logomf { return 1[4A7S12IRC1] $+  }
+titlem { return ASIRC }
+erlogom { return 13Error! }
+quitmm { return $null }
+
+;; 사용자 로고 설정, 말머리·말꼬리를 읽어들이는 부분.
+;; 없을 경우 로고 등의 경우 기본 설정으로 표시합니다.
+logo { if ($readini($cfgfile,사용자,로고) != $null) {
+  return $right($read($cfgfile,w,로고=*),$calc($len($read($cfgfile,w,로고=*)) - 5)) $+  }
+  else { return $logom }
+}
+logof { if ($readini($cfgfile,사용자,풀로고) != $null) {
+  return $right($read($cfgfile,w,풀로고=*),$calc($len($read($cfgfile,w,풀로고=*)) - 7)) $+  }
+  else { return $logomf }
+}
+title { if ($readini($cfgfile,사용자,타이틀바) != $null) {
+  return $right($read($cfgfile,w,타이틀바=*),$calc($len($read($cfgfile,w,타이틀바=*)) - 9)) $+  }
+  else { return $titlem }
+}
+erlogo { if ($readini($cfgfile,사용자,에러) != $null) {
+  return $right($read($cfgfile,w,에러=*),$calc($len($read($cfgfile,w,에러=*)) - 5)) $+  }
+  else { return $erlogom }
+}
+quitm { if ($readini($cfgfile,사용자,종료) != $null) {
+  return $right($read($cfgfile,w,종료=*),$calc($len($read($cfgfile,w,종료=*)) - 5)) $+  }
+  else { return $quitmm }
+}
+sb { if ($readini($cfgfile,사용자,말머리) != $null) {
+  return $right($read($cfgfile,w,말머리=*),$calc($len($read($cfgfile,w,말머리=*)) - 7)) $+  }
+  else { return $null }
+}
+se { if ($readini($cfgfile,사용자,말꼬리) != $null) {
+  return $right($read($cfgfile,w,말꼬리=*),$calc($len($read($cfgfile,w,말꼬리=*)) - 7)) $+  }
+  else { return $null }
+}

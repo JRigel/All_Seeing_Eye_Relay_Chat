@@ -1,0 +1,15 @@
+사용자정보(UWHO):/uwho $$1 $$1
+사용자정보(WHOIS):/whois $$1 $$1
+귓속말:/query $$1
+-
+CTCP
+.버전:/ctcp $$1 version
+.핑:/ctcp $$1 ping
+.업타임:/ctcp $$1 uptime
+.시간:/ctcp $$1 time
+.아이피:/ctcp $$1 ip
+-
+대화명으로 파일전송:{ /dcc send $$1 $$file="파일을 선택하세요" }
+대화명으로 채팅연결:{ /dcc chat $$1 }
+IP로 파일전송:{ /dcc send $gettok($address($$1,2),2,$asc(@)) $+ :59 $$file="파일을 선택하세요" }
+IP로 채팅연결:{ /dcc chat $gettok($address($$1,2),2,$asc(@)) }

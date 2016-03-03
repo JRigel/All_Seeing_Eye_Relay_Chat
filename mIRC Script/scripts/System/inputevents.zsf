@@ -1,0 +1,674 @@
+alias -l er.ciocl { echo -a $logo 이 명령은 채널에서만 사용할 수 있습니다. }
+
+on *:input:*: {
+  if ($left($1-,1) != $readini(mirc.ini,text,commandchar)) {
+    ;; input #
+
+    ;; 올옵, 올보이스 부분
+    ;; 올보이스는 mIRC가 이미 옵을 가지고 있던 다른 사용자가
+    ;; 이전에 보이스를 가지고 있었는지의 여부를 판단하지 못하여
+    ;; 기술된 코드의 의도대로 작동되지 않을 수가 있음.
+    ;; 올디옵, 올디보이스 기술 코드 삭제.
+    if ($1- == !올옵) || ($1- == !@) || ($1- == !올보이스) || ($1- == !+) {
+      echo 7 $chan $dspe.nk $1
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        var %cm
+        if ($1- == !올옵) || ($1- == !@) { %cm = o }
+        elseif ($1- == !올보이스) || ($1- == !+) { %cm = v }
+        if ($nick($chan,0,a,%cm) < 1) {
+          echo -a $logo 모든 유저들이 $replace( $+ %cm $+ ,o,옵을,v,보이스를) 가지고 있습니다.
+          halt
+        }
+        elseif ($nick($chan,0,a,%cm) >= 1) {
+          var %a.sum = $nick($chan,0,a,%cm)
+          :mall.loop
+          if (%a.sum >= 1) {
+            var %a.pass = $iif(%a.pass == $null,0,%a.pass), %a.inc = 1, %a.list = $null
+            :mall.sub
+            if (%a.inc <= $modespl) {
+              var %a.list = $iif(%a.list == $null,$nick($chan,$calc(%a.pass + %a.inc),a,%cm),%a.list $&
+                $nick($chan,$calc(%a.pass + %a.inc),a,%cm))
+              inc %a.inc 1
+              goto mall.sub
+            }
+            else {
+              mode $chan + $+ $str(%cm,$modespl) %a.list
+              dec %a.sum $modespl
+              inc %a.pass $modespl
+              goto mall.loop
+            }
+          }
+          else { halt }
+        }
+      }
+    }
+
+    ;; 옵, 보이스 부분
+    elseif ($1 == !옵) || ($1 == !보이스) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        var %cm
+        if ($1 == !옵) { %cm = o }
+        elseif ($1 == !보이스) { %cm = v }
+        mode $chan + $+ $str(%cm,$modespl) $2-
+        halt
+      }
+    }
+    ;; 디옵, 디보이스 부분 ;;
+    elseif ($1 == !디옵) || ($1 == !디보이스) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        var %cm
+        if ($1 == !디옵) { %cm = o }
+        elseif ($1 == !디보이스) { %cm = v }
+        mode $chan - $+ $str(%cm,$modespl) $2-
+        halt
+      }
+    }
+
+    ;; 킥 부분 ;;
+    elseif ($1 == !킥) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        if ($2- == $null) { halt }
+        else { kick $chan $2 $iif($3- != $null,$3-,Kick) }
+        halt
+      }
+    }
+
+    ;; 밴 부분 ;;
+    elseif ($1 == !밴) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        if ($2- == $null) { halt }
+        else {
+          if ($address($2,2) != $null) { mode $chan +b $iif($address($2,2) != $null,$address($2,2),$2) | halt }
+          else { set %밴.확인 $true | set %밴.채널 $chan | userhost $2 | halt }
+        }
+      }
+    }
+
+    ;; 킥밴 부분 ;;
+    elseif ($1 == !킥밴) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        if ($2- == $null) { halt }
+        else { mode $chan +b $address($2,2) | kick $chan $2 $iif($3- != $null,$3-,Kickban) | halt }
+      }
+    }
+
+    ;; 재입실 명령어 부분입니다.
+    elseif ($1 == !재입실) || ($1 == !재입장) || ($1 == !리조인) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) { hop $chan $iif($2- != $null,$2-,$null) | halt }
+    }
+
+    ;; 초대 명령어 부분입니다.
+    elseif ($1 == !초대) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        if ($2 != $null) { invite $2 $chan }
+        elseif ($2- == $null) { echo -a $logo 현재 채널로 초대할 닉네임을 입력해주세요. }
+        halt
+      }
+    }
+
+    ;; 토픽 부분입니다.
+    elseif ($1 == !토픽) || ($1 == !토픽-) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) {
+        if (($2 != $null) && ($left($2,1) isin $chantypes)) { topic $2 $iif($3- != $null,$iif($1 == !토픽-,$chan($2).topic $+  // $3-,$3-),$null) }
+        else er.ciocl
+        halt
+      }
+      elseif ($chan != $null) {
+        topic $chan $iif($2- != $null,$iif($1 == !토픽-,$chan($chan).topic $+  // $2-,$2-),$null)
+        halt
+      }
+    }
+
+    ;; 인원 부분입니다.
+    ;; 숫자를 입력할 경우 1보다 크거나 같으면 그 수로 인원을 제한하며
+    ;; -1 로 지정할 경우 해당 채널의 인원 제한을 해제합니다.
+    ;; 그 외의 경우나 입력하지 않은 경우 현재 인원을 표시합니다.
+    elseif ($1 == !인원) || ($1 == !인원제한) {
+      echo 7 $chan $dspe.nk $1-
+      if ($chan == $null) { er.ciocl | halt }
+      elseif ($chan != $null) {
+        if ($2 isnum) {
+          if ($2 >= 1) { mode $chan +l $2 | echo -a $logo $chan 채널의 인원 제한을 $2 $+ 명으로 설정합니다. }
+          elseif ($2 == -1) { mode $chan -l | echo -a $logo $chan 채널의 인원 제한을 해제합니다. }
+          else { echo -a $logo 인원 제한은 최소 1명부터 가능합니다. }
+          halt
+        }
+        else { echo -a $logo $chan 채널에는 현재 $nick($chan,0,a) $+ 명이 있습니다. }
+        halt
+      }
+    }
+
+    ;; 자동조인 부분입니다.
+    ;; 시험적으로 뒤에 채널 이름을 붙여도 추가되게 설정하였습니다.
+    ;; 네트워크 접속 시 입실 제한 수를 전달받아
+    ;; 그 이상의 자동조인 리스트 기록 시도가 되지 않도록 하였습니다.
+    ;; (rawevents.zsf 파일의 25번째 줄)
+    ;; 한 서버에서만 접속이 가능한 접두사 &의 채널의 경우는
+    ;; 리스트에 추가가 되지 않도록 설정하였으므로,
+    ;; 꼭 넣고자 하는 경우 수동으로 추가해주셔야 합니다. 
+    ;; 조인삭제 명령어로는 네트워크 단위로 삭제되도록 하였으며,
+    ;; 자동조인, 채널삭제와 달리 채널이 아닌 상태에서도 사용할 수 있습니다.
+    ;; 단, 네트워크 내에 접속하고 있어야 합니다.
+    elseif ($1 == !자동조인) || ($1 == !채널추가) {
+      echo 7 $chan $dspe.nk $1-
+      if ($2 == $null) {
+        if ($chan == $null) { echo -a $logo 채널 내에서, 또는 채널 이름을 지정하는 형식으로 사용하십시오. | halt }
+        elseif ($chan != $null) { var %tg.c = $chan }
+      }
+      elseif ($2 != $null) { var %tg.c = $iif($left($2,1) !isin $chantypes,$chr(35) $+ $2,$2) }
+      if ($left(%tg.c,1) == $chr(38)) { echo -a $logo 해당 타입의 채널 추가는 지원하지 않습니다. | halt }
+      if ($readini(autojoin.txt,$network,$readini(autojoin.txt,$network,limit)) != $null) {
+        echo -a $logo 12 $+ $network 네트워크 자동조인 수는 입실 제한 4 $+  $+ $readini(autojoin.txt,$network,limit) $+ 개를 초과할 수 없습니다.
+        halt
+      }
+      else { var %i = 1 }
+      :repcheck
+      if ($readini(autojoin.txt,$network,%i) != $null) {
+        if ($readini(autojoin.txt,$network,%i) != %tg.c) { inc %i | goto repcheck }
+        else { echo -a $logo 2 $+ %tg.c 채널은 12 $+ $network 네트워크 자동조인 리스트에 추가되어 있습니다. | halt }
+      }
+      else {
+        .writeini -n autojoin.txt $network %i %tg.c
+        if ($readini($cfgfile,설정,자동조인) == 자동) {
+          writeini -n $cfgfile 설정 자동조인 수동
+          if ($me !ison %tg.c) join %tg.c
+          writeini -n $cfgfile 설정 자동조인 자동
+          echo %tg.c $logo 2 $+ %tg.c 채널을 12 $+ $network 네트워크 자동조인 리스트에 추가했습니다.
+        }
+        else { echo -a $logo 2 $+ %tg.c 채널을 12 $+ $network 네트워크 자동조인 리스트에 추가했습니다. }
+      }
+      halt
+    }
+    elseif ($1 == !채널삭제) {
+      echo 7 $chan $dspe.nk $1-
+      if ($2 == $null) {
+        if ($chan == $null) { echo -a $logo 채널 내에서, 또는 채널 이름을 지정하는 형식으로 사용하십시오. | halt }
+        elseif ($chan != $null) { var %tg.c = $chan }
+      }
+      elseif ($2 != $null) { var %tg.c = $iif($left($2,1) !isin $chantypes,$chr(35) $+ $2,$2) }
+      var %i = 1
+      :existcheck
+      if ($readini(autojoin.txt,$network,%i) != $null) {
+        if ($readini(autojoin.txt,$network,%i) != %tg.c) { inc %i | goto existcheck }
+        else {
+          remini autojoin.txt $network %i
+          var %ai = $calc(%i + 1)
+          :ovdata
+          if ($readini(autojoin.txt,$network,%ai) != $null) {
+            writeini -n autojoin.txt $network %i $readini(autojoin.txt,$network,%ai)
+            inc %i | inc %ai | goto ovdata
+          }
+          remini autojoin.txt $network %i
+          if ($readini($cfgfile,설정,자동조인) == 자동) {
+            writeini -n $cfgfile 설정 자동조인 수동
+            if ($me ison %tg.c) .part %tg.c
+            writeini -n $cfgfile 설정 자동조인 자동
+          }
+          echo -a $logo 2 $+ %tg.c 채널을 12 $+ $network 네트워크 자동조인 리스트에서 삭제하였습니다.
+          halt
+        }
+      }
+      else { echo -a $logo 2 $+ %tg.c 채널은 12 $+ $network 네트워크 자동조인 리스트에 추가되어 있지 않습니다. }
+      halt
+    }
+    elseif ($1- == !조인삭제) {
+      echo 7 $chan $dspe.nk $1
+      if ($network == $null) { echo -a $logo 네트워크에 접속하고 있지 않습니다. | halt }
+      elseif ($network != $null) {
+        var %lim.copy = $readini(autojoin.txt,$network,limit)
+        remini autojoin.txt $network
+        writeini -n autojoin.txt $network limit %lim.copy
+        if ($readini($cfgfile,설정,자동조인) == 자동) {
+          writeini -n $cfgfile 설정 자동조인 수동
+          .partall
+          writeini -n $cfgfile 설정 자동조인 자동
+        }
+        echo -a $logo 12 $+ $network 네트워크 자동조인 리스트를 초기화하였습니다.
+        halt
+      }
+    }
+
+    ;; input *
+
+    ;; 입실, 퇴실 명령어입니다.
+    ;; 퇴실 명령어는 자신이 보고 있는 창을 닫습니다.
+    elseif ($1 == !입장) || ($1 == !입실) || ($1 == !조인) {
+      if ($active != Status Window) { echo 7 -a $dspe.nk $1- }
+      if ($2- != $null) {
+        if ($left($2,1) isin $chantypes) { join $2- }
+        else { join $chr(35) $+ $2- }
+      }
+      halt
+    }
+    elseif ($1 == !퇴장) || ($1 == !퇴실) || ($1 == !파트) {
+      if ($left($active,1) isin $chantypes) { part $active $2- }
+      elseif ($left($active,1) == $chr(61)) { close -ci $remove($active,$chr(61)) }
+      else { close -m $active }
+      halt
+    }
+
+    ;; 쿼리와 DCC 명령어입니다.
+    elseif ($1 == !쿼리) || ($1 == !귓속말) || ($1 == !귓말) || ($1 == !귓) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 != $null) { query $2- }
+      elseif ($2 == $null) { echo -a $logo 쿼리를 보낼 대상을 입력해주세요. }
+      halt
+    }
+    elseif ($1 == !dcc) || ($1 == !디씨씨) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 != $null) { dcc chat $2 }
+      elseif ($2 == $null) { echo -a $logo DCC 채팅을 신청할 대상을 입력해주세요. }
+      halt
+    }
+    elseif ($1 == !송신) || ($1 == !전송) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 != $null) {
+        if ($3- == $null) {
+          var %s = $sfile(C:\,전송하실 파일을 선택해주세요,전송)
+          if (%s != $null) { dcc send $2 " $+ %s $+ " } | else { halt }
+        }
+        if ($3- == $null) { dcc send $2 }
+        elseif ($3- != $null) {
+          if ($isfile($3-) == $true) { dcc send $2 " $+ $3- $+ " }
+          else { echo -a $logo 전송하실 파일을 찾을 수 없습니다. }
+        }
+      }
+      elseif ($2 == $null) { echo -a $logo DCC로 파일을 전송받을 대상을 입력해주세요. }
+      halt
+    }
+
+    ;; 핑 명령어입니다.
+    elseif ($1 == !핑) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 != $null) { .ctcp $2 ping }
+      elseif ($2 == $null) { .ctcp $me ping }
+      halt
+    }
+
+    elseif ($1 == !말) || ($1 == !말하기) {
+      if ($2- != $null) { say $2- | halt }
+    }
+
+    ;; 단축 명령어 다이얼로그 명령어입니다.
+    elseif ($1- == !단축) { echo 7 -a $dspe.nk $1- | sc | halt }
+
+    ;; 닉네임을 설정하는 명령어입니다.
+    elseif ($1 == !닉) || ($1 == !닉네임) || ($1 == !대화명) {
+      echo 7 -a $dspe.nk $1-2
+      if ($2 != $null) {
+        if ($3 == 임시) { tnick $2 }
+        else { nick $2 }
+      }
+      halt
+    }
+    elseif ($1 == !본닉) {
+      echo 7 -a $dspe.nk $1-
+      .nick $mnick
+      halt
+    }
+
+    ;; IRC를 트레이 상태로 전환하는 명령어입니다.
+    elseif ($1- == !트레이) {
+      echo 7 -a $dspe.nk $1
+      showmirc -t
+      halt
+    }
+
+    ;; 호출음 재생 기능 활성·비활성 명령어입니다.
+    elseif ($1 == !호출음) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 == $null) { echo -a $logo 호출음 재생 기능 상태 : $readini($cfgfile,설정,호출음) }
+      elseif ($2 != $null) {
+        if ($2 == 켬) || ($2 == 켜기) || ($2 == on) || ($2 == 활성) || ($2 == 활성화) {
+          writeini -n $cfgfile 설정 호출음 켜짐 
+          echo -a $logo 호출음 재생 기능을 활성화하였습니다.
+        }
+        elseif ($2 == 끔) || ($2 == 끄기) || ($2 == off) || ($2 == 비활성) || ($2 == 비활성화) {
+          writeini -n $cfgfile 설정 호출음 꺼짐
+          echo -a $logo 호출음 재생 기능을 비활성화하였습니다.
+        }
+      }
+      halt
+    }
+
+    ;; 업타임 명령어입니다.
+    elseif ($1- == !업타임) {
+      echo 7 -a $dspe.nk $1
+      echo -a $logo 운영체제 기동 후 $remove($replace($uptime(system,1),wk,주,day,일,hr,시간,min,분,sec,초),s) 경과되었습니다.
+      halt
+    }
+
+    ;; 현재 보고 있는 창($active)를 청소하는 명령어입니다.
+    elseif ($1- == !청소) { clear | halt }
+    ;; 현재 켜져있는 모든 창을 청소하는 명령어입니다.
+    elseif ($1- == !대청소) { clearall | halt }
+
+    ;; 채널 자동조인 설정 다이얼로그 표시 명령어입니다.
+    elseif ($1- == !조인설정) {
+      echo 7 $chan $dspe.nk $1
+      dialog -ma Autojoin_Controller Autojoin_Controller
+      halt
+    }
+
+    ;; 시스템 종료와 재시작 명령어입니다.
+    ;; Windows XP인 경우에는 shutdown.exe를 이용하여
+    ;; 별도의 dll 파일 없이도 종료, 재시작이 가능합니다.
+    elseif ($1- == !컴종료) {
+      pc_shutdown
+    }
+    elseif ($1- == !리붓) || ($1- == !리부팅) || ($1- == !재부팅) {
+      echo 7 -a $dspe.nk $1
+      pc_reboot
+    }
+
+    ;; 현재 시스템의 IP를 보여주는 명령어입니다.
+    ;; /userhost 와 연동하여 특정 대상의 주소를 가져올 수 있습니다.
+    elseif ($1 == !ip) || ($1 == !아이피) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 == $null) || ($2 == $me) { echo -a $logo 현재 시스템의 IP : $ip }
+      else { userhost $2 } | halt
+    }
+
+    ;; 이그노어 부분입니다.
+    ;; /userhost 와 연동하여 특정 대상의 주소를 가져오고 이그노어합니다.
+    elseif ($1 == !이그노어) || ($1 == !무시) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 != $null) {
+        if ($2 == $me) || ($2 == $ip) { echo -a $logo 자기 자신은 이그노어의 대상으로 할 수 없습니다. }
+        else {
+          if ($chr(46) isin $2) {
+            if (($3 != $null) && ($3 == 삭제)) { ignore -r $2 }
+            else { ignore $2 }
+          }
+          else {
+            if (($3 != $null) && ($3 == 삭제)) { set %이그노어.삭제 $true }
+            else { set %이그노어.확인 $true }
+            userhost $2
+          }
+        }
+      }
+      else {
+        echo -a $logo 다음의 예로 사용하십시오.
+        echo -a 0 $+ $strip($logo,urc)
+        echo -a 0 $+ $strip($logo,urc) !이그노어목록　　　　: 이그노어 리스트를 표시합니다.
+        echo -a 0 $+ $strip($logo,urc) !이그노어 닉네임 　　 : userhost를 이용하여 닉네임의 주소를 가져온 후 이그노어 목록에 추가합니다.
+        echo -a 0 $+ $strip($logo,urc) !이그노어 닉네임 삭제 : userhost를 이용하여 닉네임의 주소를 가져온 후 이그노어 목록에서 삭제합니다.
+        echo -a 0 $+ $strip($logo,urc) !이그노어 주소　 　　 : . 이 들어가게 될 경우 주소로 인식하며 userhost 없이 직접 목록에 추가합니다.
+        echo -a 0 $+ $strip($logo,urc) !이그노어 주소　 삭제 : . 이 들어가게 될 경우 주소로 인식하며 userhost 없이 직접 목록에서 삭제합니다.
+        echo -a 
+      }
+      halt
+    }
+    elseif ($1- == !이그노어목록) || ($1- == !무시목록) {
+      echo 7 -a $dspe.nk $1-
+      ignore -l
+      halt
+    }
+
+    ;; /who 명령어를 이용해 유저를 찾는 !찾기 명령어입니다.
+    ;; %f 변수에 채널의 경우 c, 유저의 경우 u 를 지정합니다.
+    elseif ($1 == !찾기) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 != $null) {
+        if (%fr != $null) { .unset %fr }
+        if ($left($2,1) isin $chantypes) { %f = c }
+        else { %f = u }
+        who $2 $chr(37) $+ n
+      }
+      halt
+    }
+
+    ;; 자신이 입실한 채널 수를 보여주는 명령어입니다.
+    elseif ($1- == !입실수) || ($1- == !채널수) {
+      echo 7 -a $dspe.nk $1
+      echo -a $logo 현재 12 $+ $network $+  네트워크에서 입실한 채널의 수는 $chan(0) $+ 개입니다.
+      halt
+    }
+
+    ;; /whois 명령어
+    elseif ($1 == !정보) {
+      echo 7 -a $dspe.nk $1-2
+      if ($2 != $null) { whois $2 $2 }
+      halt
+    }
+
+    elseif ($1 == !DDE) {
+      echo 7 -a $dspe.nk $1-2
+      if ($2 == shutdown) {
+        dde asirc_server "" [shutdown]
+        echo 3 -at DDE_Relay Server [ 4Shutdown 3]
+      }
+      elseif ($2 == debug) {
+        dde asirc_server "" [shutdown]
+        .run $dde_relay $1-
+        echo 3 -at DDE_Relay Server [ 4Debug Mode Start 3]
+      }
+      elseif ($2 == start) {
+        dde asirc_server "" [shutdown]
+        .run $dde_relay
+        echo 3 -at DDE_Relay Server [ 4Start 3]
+      }
+      elseif ($2 == $null) {
+        dde asirc_server "" [DDE]
+      }
+      halt
+    }
+
+    elseif ($1 == !웹) {
+      echo 7 -a $dspe.nk $1-
+      var %wt = $iif($2- != $null,$2-,http://www.google.com)
+      if ($readini($cfgfile,설정,웹브라우저) == 익스) { run iexplore %wt }
+      elseif ($readini($cfgfile,설정,웹브라우저) == 크롬) { run "chrome" -remote %wt }
+      elseif ($readini($cfgfile,설정,웹브라우저) == 사용자) { run " $+ $readini($cfgfile,사용자,웹브라우저) $+ " %wt } 
+      else { run $iif(%wt != $null,%wt,http://www.google.com) }
+      halt
+    }
+
+    ;; 계산 명령어입니다.
+    elseif ($1 == !계산) {
+      echo 7 -a $dspe.nk $1-
+      if ($2- != $null) {
+        echo -a $logo 준식 = 
+        echo -a 0 $+ $strip($logo,urc) 계산 결과 : $calc($2-)
+      }
+      halt
+    }
+
+    ;; 메모 기능 명령어입니다.
+    elseif ($1 == !메모) {
+      echo 7 -a $dspe.nk $1-
+      if ($2- == $null) {
+        echo -a $logo 메모 기능의 사용법은 다음과 같습니다.
+        echo -a 0 $+ $strip($logo,urc)
+        echo -a 0 $+ $strip($logo,urc) 메모를 저장할 경우 : !메모 제목 내용
+        echo -a 0 $+ $strip($logo,urc) 메모를 열어볼 경우 : !메모보기 제목
+        echo -a 0 $+ $strip($logo,urc) 메모를 삭제할 경우 : !메모삭제 제목
+        echo -a 0 $+ $strip($logo,urc) 메모목록을 볼 경우 : !메모목록 14 $+ or $+  !메모리스트
+        echo -a 
+      }
+      elseif ($2- != $null) {
+        if ($3 == $null) { echo -a $logo 메모하실 내용을 적어주세요. }
+        else {
+          write -l1 memo.txt $chr(91) $+ memo $+ $chr(93)
+          if ($readini(memo.txt,memo,$2) != $null) { echo -a $logo 같은 이름을 가진 메모가 존재합니다. }
+          else { write memo.txt $2 $+ = $+ $ctime $+ $chr(5) $+ $active $+ $chr(5) $+ $3-
+          echo -a $logo 메모를 저장하였습니다. : $2 }
+        }
+      }
+      halt
+    }
+    elseif ($1 == !메모보기) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 == $null) { echo -a $logo 확인하실 메모의 제목을 입력해주세요. }
+      else {
+        if ($readini(memo.txt,memo,$2) != $null) {
+          if ($left($gettok($readini(memo.txt,memo,$2),2,5),1) isin $chantypes) { var %c = $gettok($readini(memo.txt,memo,$2),2,5) 채널에서 }
+          elseif ($left($gettok($readini(memo.txt,memo,$2),2,5),1) == $chr(64)) { var %c = $gettok($readini(memo.txt,memo,$2),2,5) 창에서 } 
+          else { if ($gettok($readini(memo.txt,memo,$2),2,5) == Status Window) { var %c = 상태 창에서 } | else { var %c = $gettok($readini(memo.txt,memo,$2),2,5) 님과의 대화 중에 } }
+          ;; 메모 표시 부분
+          echo -a $logo 저장된 메모를 확인합니다.
+          echo -a 
+          echo -a 0 $+ $strip($logo,urc) 4 $+  $+ $2 $+  ( $+ $asctime($gettok($readini(memo.txt,memo,$2),1,5),yy/mm/dd-hh:nn) %c 작성 $+ )
+          echo -a 0 $+ $strip($logo,urc) $gettok($readini(memo.txt,memo,$2),3,5)
+          echo -a 
+        }
+        else { echo -a $logo 확인하실 메모를 찾을 수 없습니다. : $2 }
+      }
+      halt
+    }
+    elseif ($1 == !메모삭제) {
+      echo 7 -a $dspe.nk $1-
+      if ($2 == $null) { echo -a $logo 삭제하실 메모의 제목을 입력해주세요. }
+      else {
+        if ($readini(memo.txt,memo,$2) != $null) { remini memo.txt memo $2 | echo -a $logo 메모를 삭제하였습니다. : $2 }
+        else { echo -a $logo 삭제하실 메모를 찾을 수 없습니다. : $2 }
+      }
+      halt
+    }
+    elseif ($1 == !메모목록) || ($1 == !메모리스트) {
+      echo 7 -a $dspe.nk $1-
+      if ($lines(memo.txt) >= 2) { echo -a $logo 저장된 메모 목록입니다. | echo -a  | var %i = 2
+        while (%i <= $lines(memo.txt)) {
+          if ($left($gettok($gettok($read(memo.txt,%i),2,61),2,5),1) isin $chantypes) { var %c = $gettok($gettok($read(memo.txt,%i),2,61),2,5) 채널에서 }
+          elseif ($left($gettok($gettok($read(memo.txt,%i),2,61),2,5),1) == $chr(64)) { var %c = $gettok($gettok($read(memo.txt,%i),2,61),2,5) 창에서 } 
+          else { if ($gettok($gettok($read(memo.txt,%i),2,61),2,5) == Status Window) { var %c = 상태 창에서 } | else { var %c = $gettok($gettok($read(memo.txt,%i),2,61),2,5) 님과의 대화 중에 } }
+          echo -a 0 $+ $strip($logo,urc) 4 $+  $+ $gettok($read(memo.txt,%i),1,61) $+  : $asctime($gettok($gettok($read(memo.txt,%i),2,61),1,5),yy/mm/dd-hh:nn) %c 작성
+          inc %i
+        }
+        echo -a 
+      }
+      else { echo -a $logo 저장된 메모가 없습니다. }
+      halt
+    }
+
+    ;; 설정파일을 메모장으로 여는 명령어입니다.
+    ;; 설정값을 확인할 경우에 사용할 수 있습니다.
+    elseif ($1- == !설정파일) { .run notepad $cfgfile | halt }
+
+    elseif ($1- == !인증) {
+      echo 7 -a $dspe.nk $1
+      config | did -c setting 400
+      halt
+    }
+
+    ;; 설정 다이얼로그의 매크로 창으로 이동.
+    elseif ($1- == !매크로) {
+      echo 7 -a $dspe.nk $1
+      config | did -c setting 300
+      halt
+    }
+
+    ;; 말머리, 말꼬리, 색, 볼드, 밑줄, 반전 설정
+    ;; 그 밑에는 위의 것들이 적용된 상태로
+    ;; say 명령어를 사용하는 구문이 들어있습니다.
+    elseif ($1 == !말머리) {
+      echo 7 -a $dspe.nk $1-
+      writeini -n $cfgfile 설정 말머리 $iif($readini($cfgfile,설정,말머리사용) == 꺼짐,켜짐,꺼짐)
+      echo -a $logo 말머리 기능을 $iif($readini($cfgfile,설정,말머리사용) == 켜짐,활성화,비활성화) $+ 합니다.
+      halt
+    }
+    elseif ($1 == !말꼬리) {
+      echo 7 -a $dspe.nk $1-
+      writeini -n $cfgfile 설정 말꼬리 $iif($readini($cfgfile,설정,말꼬리사용) == 꺼짐,켜짐,꺼짐)
+      echo -a $logo 말꼬리 기능을 $iif($readini($cfgfile,설정,말꼬리사용) == 켜짐,활성화,비활성화) $+ 합니다.
+      halt
+    }
+    elseif ($1 == !칼라) || ($1 == !색상) {
+      echo 7 -a $dspe.nk $1-
+      if (($2 >= 0) && ($2 <= 15)) { writeini -n $cfgfile 사용자 색상 $2 | writeini -n $cfgfile 설정 색상 켜짐 }
+      elseif ($2- == $null) { writeini -n $cfgfile 설정 색상 $iif($readini($cfgfile,설정,색상) == 꺼짐,켜짐,꺼짐) }
+      echo -a $logo 색상 기능을 $iif($readini($cfgfile,설정,색상) == 켜짐,활성화,비활성화) $+ 합니다. $&
+        현재 설정된 색상 : $+  $+ $readini($cfgfile,사용자,색상) $readini($cfgfile,사용자,색상) $+  $+ 번 $chr(91) $+  $+ $readini($cfgfile,사용자,색상) ■ $chr(93)
+      halt
+    }
+    elseif ($1- == !흑백) {
+      echo 7 -a $dspe.nk $1
+      writeini -n $cfgfile 설정 색상 꺼짐
+      echo -a $logo 색상 기능을 비활성화합니다. $&
+        현재 설정된 색상 : $+  $+ $readini($cfgfile,사용자,색상) $readini($cfgfile,사용자,색상) $+  $+ 번 $chr(91) $+  $+ $readini($cfgfile,사용자,색상) ■ $chr(93)
+      halt
+    }
+    elseif ($1- == !볼드) || ($1- == !밑줄) || ($1- == !반전) {
+      echo 7 -a $dspe.nk $1
+      writeini -n $cfgfile 설정 $remove($1,!) $iif($readini($cfgfile,설정,$remove($1,!)) == 꺼짐,켜짐,꺼짐)
+      echo -a $logo $remove($1,!) 기능을 $iif($readini($cfgfile,설정,$remove($1,!)) == 켜짐,활성화,비활성화) $+ 합니다.
+      halt
+    }
+    elseif ($1- == !다끔) {
+      echo 7 -a $dspe.nk $1
+      writeini -n $cfgfile 설정 볼드 꺼짐 | writeini -n $cfgfile 설정 밑줄 꺼짐
+      writeini -n $cfgfile 설정 반전 꺼짐 | writeini -n $cfgfile 설정 색상 꺼짐
+      writeini -n $cfgfile 설정 말머리사용 꺼짐 | writeini -n $cfgfile 설정 말꼬리사용 꺼짐
+      echo -a $logo 모든 말하기 옵션을 비활성화합니다.
+      halt
+    }
+    elseif ($1- == !설정) { echo 7 -a $dspe.nk $1 | config | halt }
+    ;; 기타 부분
+    else {
+      ;; 입력된 내용이 단축 명령어 실행인가를 확인하는 부분입니다.
+      if (($asc($left($1,1)) == $asc($readini($cfgfile,설정,프리픽스))) && ($len($1-) >= 2)) {
+        echo 7 -a $dspe.nk $1-
+        var %c = $right($1,$calc($len($1) - 1))
+        if ($readini(sc.ini,단축,%c) != $null) {
+          if ($left($readini(sc.ini,단축,%c),1) == $chr(47)) {
+            var %f = $gettok($readini(sc.ini,단축,%c),1,47)
+            run -p " $+ %f $+ " " $+ $nofile(%f) $+ "
+          }
+          elseif ($left($readini(sc.ini,단축,%c),1) == $chr(42)) {
+            var %ws = $gettok($readini(sc.ini,단축,%c),1,42)
+            if ($readini($cfgfile,설정,웹브라우저) == 익스) { run iexplore %ws }
+            elseif ($readini($cfgfile,설정,웹브라우저) == 크롬) { run "chrome" %ws }
+            elseif ($readini($cfgfile,설정,웹브라우저) == 사용자) { run " $+ $readini($cfgfile,사용자,웹브라우저) $+ " %ws }
+            else { run %ws }
+          }
+          else { run $readini(sc.ini,단축,%c) }
+        }
+        else { echo -a $logo 해당 명령어를 찾을 수 없습니다. : $1 }
+        halt
+      }
+      else {
+        if ($active != Status Window) {
+
+          dde asirc_server "" [내대화] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $iif($chan != $null, $chan, $query($active)) $1-
+          say_advanced $1-
+          halt
+        }
+      }
+    }
+  }
+  else if ($left($1-,1) == $readini(mirc.ini,text,commandchar) && msg == $mid($1,2)) dde asirc_server "" [내대화] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $iif($chan != $null,$chan, $query($active)) $1-
+}
+
+menu status,channel,query,chat,window {
+  부재중[ $+ $iif($away == $true,중지하기,사용하기) $+ ] {
+    if ($away == $true) {
+      away
+    }
+    else {
+      var %awaymsg = $input(부재 사유를 입력하세요.,1,입력 요청)
+      if (%awaymsg == $null) { var %awaymsg = 저는 지금 부재중입니다. }
+      away %awaymsg
+    }
+  }
+  -
+  단축 실행 설정:sc
+  자동조인 설정:dialog -ma Autojoin_Controller Autojoin_Controller
+  사용자 설정:config
+  -
+}

@@ -1,0 +1,375 @@
+alias custom_change {
+  dll " $+ $mircdir\etc\mircustom.dll $+ " Titlebar -m $iif($readini($cfgfile,사용자,타이틀바) != $null,$strip($title,burc),All Seeing Eye Relay Chat)
+  dll " $+ $mircdir\etc\mircustom.dll $+ " SetIcon -m $iif($isfile($readini($cfgfile,사용자,아이콘)) == $true,$readini($cfgfile,사용자,아이콘),$mircdiretc\asirc.ico)
+}
+
+;; start 이벤트 ;;
+on 1:start:{
+  custom_change
+  unsetall
+  .run $dde_relay
+  main_i
+
+  if ($mnick == $null) { .timerscfg 1 1.1 dialog -m setting setting }
+  elseif ($mnick != $null) { if ($status != connected) { server } }
+}
+
+;; 접속 부분 ;;
+on 1:connect:{
+  {
+    ;; 거부 설정이 되어 있는 것을 확인.
+    if ($readini($cfgfile,설정,쿼리거부) == 켜짐) { .ignore -p *!*@* }
+    elseif ($readini($cfgfile,설정,쿼리거부) == 꺼짐) { .ignore -pr *!*@* }
+
+    if ($readini($cfgfile,설정,초대거부) == 켜짐) { .ignore -i *!*@* }
+    elseif ($readini($cfgfile,설정,초대거부) == 꺼짐) { .ignore -ir *!*@* }
+
+    if ($readini($cfgfile,설정,시티시피거부) == 켜짐) { .ign./ore -t *!*@* }
+    elseif ($readini($cfgfile,설정,시티시피거부) == 꺼짐) { .ignore -tr *!*@* }
+
+    if ($readini($cfgfile,설정,노티스거부) == 켜짐) { .ignore -n *!*@* }
+    elseif ($readini($cfgfile,설정,노티스거부) == 꺼짐) { .ignore -nr *!*@* }
+
+    if ($readini($cfgfile,설정,디씨씨거부) == 켜짐) { .ignore -d *!*@* }
+    elseif ($readini($cfgfile,설정,디씨씨거부) == 꺼짐) { .ignore -dr *!*@* }
+  }
+
+  ;; Anti-idle 사용 여부.
+  if ($readini($cfgfile,설정,안티아이들) == 켜짐) { anti-idle }
+
+  ;;자동조인 부분
+  ;;freenode 전용
+  s.auth
+  ic.aj
+}
+
+;; join, part 이벤트.
+;; 자동조인 채널 리스트 추가 방식 수정.
+on ^1:JOIN:#:{
+  if ($nick != $me) {
+    ;echo 3 -t $chan 10 $nick ( $+ $address $+ ) 님께서 입장하셨습니다.
+    echo $chan 10 $+ $timestamp 10 $nick $+ ( $+ $address $+ ) 님이 입장하셨습니다.
+    dde asirc_server "" [입장] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $+ ( $+ $address $+ )
+  }
+  elseif ($nick == $me) {
+    .writeini -n $cfgfile c-buf $chan in
+    if ($readini($cfgfile,설정,자동조인) == 자동) {
+      if ($left($chan,1) == $chr(38)) { ;; freenode는 애초에 지원안함
+        echo $chan $logo 자동조인 추가를 지원하지 않는 타입의 채널입니다.
+      }
+      else {
+        var %i = 1, %t = $chan
+        while ($readini(autojoin.txt,$network,%i) != $null) {
+          if ($readini(autojoin.txt,$network,%i) != %t) inc %i
+          else break
+        }
+        if ($readini(autojoin.txt,$network,%i) == $null) {
+          writeini -n autojoin.txt $network %i %t
+        }
+      }
+    }
+  }
+  halt
+}
+
+;; 퇴실 부분 ;;
+on ^1:PART:#:{
+  if ($nick != $me) {
+    dde asirc_server "" [퇴장] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $+ ( $+ $address $+ ) $iif($1-!=$null,( $+ $1- $+ ),$null)
+    echo $chan 10 $+ $timestamp 10 $nick $+ ( $+ $address $+ ) 님이 퇴장하셨습니다. $&
+      $iif($1-!=$null,( $+ $1- $+ ),$null)
+  }
+  elseif ($nick == $me) {
+    dde asirc_server "" [내퇴장] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan
+    if ($readini($cfgfile,설정,자동조인) == 자동) {
+      var %i = 1, %t = $chan
+      :ajf_lctd
+      if ($readini(autojoin.txt,$network,%i) != $null) {
+        if ($readini(autojoin.txt,$network,%i) == %t) {
+          remini autojoin.txt $network %i
+          var %ai = $calc(%i + 1)
+          :ajf_llftd
+          if ($readini(autojoin.txt,$network,%ai) != $null) {
+            writeini -n autojoin.txt $network %i $readini(autojoin.txt,$network,%ai)
+            inc %i | inc %ai | goto ajf_llftd
+          }
+          remini autojoin.txt $network %i
+          halt
+        }
+        else { inc %i | goto ajf_lctd }
+      }
+      else { halt }
+    }
+  }
+  halt
+}
+
+;; 호출
+on ^1:NOTICE:*:*: {
+  if ($me isincs $1-) {
+    dde asirc_server "" [호출] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-
+    if ($readini($cfgfile,설정,호출음) == 켜짐) {
+      var %cps
+      if ($readini($cfgfile,설정,명령호출) == 켜짐) {
+        if ($1 != !호출) { %cps = $false }
+        elseif ($1 == !호출) {
+          if ($readini($cfgfile,설정,엄격호출) == 켜짐) {
+            if ($2 != $me) || ($3- != $null) { %cps = $false }
+            elseif (($2 == $me) && ($3- == $null)) { %cps = $true }
+          }
+          else { %cps = $true }
+        }
+      }
+      else { %cps = $true }
+      if (%cps) { window -g2 $chan | splay " $+ $mircdirsounds\paging.wav $+ " }
+    }
+    if ($readini($cfgfile,설정,호출기록) == 켜짐) {
+      var %cwl
+      if ($readini($cfgfile,설정,명령호출) == 켜짐) {
+        if ($1 != !호출) { %cwl = $false }
+        elseif ($1 == !호출) {
+          if ($readini($cfgfile,설정,엄격호출) == 켜짐) {
+            if ($2 != $me) || ($3- != $null) { %cwl = $false }
+            elseif (($2 == $me) && ($3- == $null)) { %cwl = $true }
+          }
+          else { %cwl = $true }
+        }
+      }
+      else { %cwl = $true }
+      if (%cwl) {
+        window -g2 $chan
+        if ($window(@호출) == $null) { window -ng2k0 @호출 }
+        else { window -g2 @호출 }
+        aline @호출 $timestamp 4 $+  $+ $nick $+ 님이 $&
+          12 $+ $network $+  네트워크 2 $+ $chan $+  채널에서 호출하셨습니다.
+      }
+    }
+  }
+  else {
+    var %i 0
+    while (%i <= $lines(highlight.ini)) {
+      var %temp $read(highlight.ini,[ %i ])
+      if (%temp isin $1-) {
+        dde asirc_server "" [강조] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-
+        var %x 1
+      }
+      inc %i
+    } 
+    if (%x != 1) dde asirc_server "" [노티스] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-     
+  }
+}
+
+on ^1:TEXT:*:*: {
+  if ($chan == $null) { 
+    if ($me isincs $1-) {
+      window -g2 $nick
+      if ($window(@호출(귓속말)) == $null) { window -ng2k0 @호출(귓속말) }
+      else { window -g2 @호출(귓속말) }
+      aline @호출(귓속말) $timestamp 4 $+  $+ $nick $+ 님이 호출하셨습니다.
+      dde asirc_server "" [귓말호출] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $nick $1-
+    }
+    else {
+      var %i 0
+      while (%i <= $lines(highlight.ini)) {
+        var %temp $read(highlight.ini,[ %i ])
+        if (%temp isin $1-) {
+          dde asirc_server "" [강조] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) null $nick $1-
+          var %x 1
+        }
+        inc %i
+      } 
+      if (%x != 1) dde asirc_server "" [귓말대화] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $nick $1-
+    }
+    return
+  }
+  else {
+    if ($me isincs $1-) {
+      dde asirc_server "" [호출] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-
+      if ($readini($cfgfile,설정,호출음) == 켜짐) {
+        var %cps
+        if ($readini($cfgfile,설정,명령호출) == 켜짐) {
+          if ($1 != !호출) { %cps = $false }
+          elseif ($1 == !호출) {
+            if ($readini($cfgfile,설정,엄격호출) == 켜짐) {
+              if ($2 != $me) || ($3- != $null) { %cps = $false }
+              elseif (($2 == $me) && ($3- == $null)) { %cps = $true }
+            }
+            else { %cps = $true }
+          }
+        }
+        else { %cps = $true }
+        if (%cps) { window -g2 $chan | splay " $+ $mircdirsounds\paging.wav $+ " }
+      }
+      if ($readini($cfgfile,설정,호출기록) == 켜짐) {
+        var %cwl
+        if ($readini($cfgfile,설정,명령호출) == 켜짐) {
+          if ($1 != !호출) { %cwl = $false }
+          elseif ($1 == !호출) {
+            if ($readini($cfgfile,설정,엄격호출) == 켜짐) {
+              if ($2 != $me) || ($3- != $null) { %cwl = $false }
+              elseif (($2 == $me) && ($3- == $null)) { %cwl = $true }
+            }
+            else { %cwl = $true }
+          }
+        }
+        else { %cwl = $true }
+        if (%cwl) {
+          window -g2 $chan
+          if ($window(@호출) == $null) { window -ng2k0 @호출 }
+          else { window -g2 @호출 }
+          aline @호출 $timestamp 4 $+  $+ $nick $+ 님이 $&
+            12 $+ $network $+  네트워크 2 $+ $chan $+  채널에서 호출하셨습니다.
+        }
+      }
+    }
+    else {
+      var %i 0
+      while (%i <= $lines(highlight.ini)) {
+        var %temp $read(highlight.ini,[ %i ])
+        if (%temp isin $1-) {
+          dde asirc_server "" [강조] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-
+          var %x 1
+        }
+        inc %i
+      } 
+      if (%x != 1) dde asirc_server "" [대화] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-     
+    }
+  }
+}
+
+;; 상대방 종료
+on ^1:QUIT:{ 
+  dde asirc_server "" [종료] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $nick $+ ( $+ $address $+ ) $iif($1-!=$null,( $+ $1- $+ ),$null)
+}
+
+;; 채널 모드 변경
+on ^1:MODE:*:{ 
+  dde asirc_server "" [채널모드] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+
+;; 옵/디옵
+on ^1:OP:#:{
+  dde asirc_server "" [옵] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $2-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+on ^1:DEOP:#:{
+  dde asirc_server "" [디옵] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $2-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+
+;;보이스/디보이스
+on ^1:VOICE:#:{
+  dde asirc_server "" [보이스] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $2-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+on ^1:DEVOICE:#:{
+  dde asirc_server "" [디보이스] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $2-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+
+;;킥/밴/언밴
+on ^1:KICK:#:{
+  dde asirc_server "" [킥] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $2-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+on ^1:BAN:#:{
+  dde asirc_server "" [밴] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $2-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+on ^1:UNBAN:#:{
+  dde asirc_server "" [언밴] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $2-
+  echo 3 -t $chan * $nick 님의 모드 설정: $1- 
+  halt 
+}
+
+;; topic 이벤트.
+on ^1:TOPIC:#:{
+  dde asirc_server "" [토픽변경] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick $1-
+  echo 3 -t $chan * $nick 님의 토픽 변경: $1- 
+  halt 
+}
+
+;; invite 이벤트.
+on ^1:INVITE:#:{
+  dde asirc_server "" [초대] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $chan $nick
+  echo -a $logo $nick 님께서 당신을 $chan 채널로 초대하셨습니다. 
+  halt 
+}
+
+;;대화명 변경
+;;ON NICK 에 $chan 적용 안됨
+on ^1:NICK:{ 
+  if ($nick == $me) {
+    dde asirc_server "" [내대화명변경] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $newnick
+    echo 3 -st * 당신의 새로운 대화명은 $newnick 입니다.
+    echo 3 -at * $nick 님의 새로운 대화명: $newnick
+    halt
+  }
+  else {
+    dde asirc_server "" [대화명변경] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $nick $newnick
+    echo 3 -at * $nick 님의 새로운 대화명: $newnick
+    halt
+  }
+}
+
+;; 서버 공지 수신 시 사운드 재생 ;;
+on 1:SNOTICE:*:{
+  if (%sp != $true) {
+    set %sp $true
+    splay " $+ $mircdirsounds\note.wav $+ "
+    .timer 1 1 .unset %sp
+  }
+}
+
+;; 파일 송·수신 부분 ;;
+on 1:FILERCVD:*:{ echo -a $logo $nick 님께서 전송하신 파일을 수신하였습니다. : $filename ( $+ $bytes($file($filename).size).suf $+ ) | set %dlfile $filename }
+on 1:FILESENT:*:{ echo -a $logo $nick 님께 파일을 성공적으로 송신하였습니다. : $filename ( $+ $bytes($file($filename).size).suf $+ ) }
+on 1:SENDFAIL:*:{ echo -a $logo $nick 님께 파일을 송신하는데 실패하였습니다. : $filename ( $+ $bytes($file($filename).size).suf $+ ) }
+on 1:GETFAIL:*:{ echo -a $logo $nick 님께서 전송하신 파일을 수신하는데 실패하였습니다. : $filename }
+
+;; CTCP 응답 표시 부분 ;;
+on 1:CTCPREPLY:*: {
+  if ($1 == VERSION) { echo -a $logo $nick 님의 버전은 다음과 같습니다. : $2- }
+  elseif ($1 == PING) { echo -a $logo $nick 님의 핑은 다음과 같습니다. : $calc($ctime - $2) $+ 초 }
+  elseif ($1 == TIME) { echo -a $logo $nick 님의 시간은 다음과 같습니다. : $6 $+ 년 $&
+      $replace($3,Jan,1,Feb,2,Mar,3,Apr,4,May,5,Jun,6,Jul,7,Aug,8,Sep,9,Oct,10,Nov,11,Dec,12) $+ 월 $4 $+ 일 $&
+      $replace($2,Mon,월,Tue,화,Wed,수,Thu,목,Fri,금,Sat,토,Sun,일) $+ 요일 $&
+    $iif($calc($gettok($5,1,58) - 12) < 0,오전 $gettok($5,1,58),오후 $calc($gettok($5,1,58) - 12)) $+ 시 $gettok($5,2,58) $+ 분 $gettok($5,3,58) $+ 초 }
+  elseif ($1 == FINGER) { echo -a $logo $nick 님의 핑거 결과는 다음과 같습니다. : $2- }
+  ;
+  elseif ($1 == UPTIME) { echo -a $logo $nick 님의 업타임은 다음과 같습니다. : $remove($replace($duration($calc($2 / 1000)),wk,주,day,일,hr,시간,min,분,sec,초),s) }
+  elseif ($1 == IP) { echo -a $logo $nick 님의 아이피는 다음과 같습니다. : $2- }  
+  elseif ($1 == OS) { echo -a $logo $nick 님의 운영체제는 다음과 같습니다. : Windows $2- }
+  ;
+  elseif ($1 == CONFIRM_ZISN) { echo -a $logo $nick 님은 $2- 을(를) 사용하고 있습니다. }
+}
+;; CTCP 수신 시 응답 부분 ;;
+CTCP 1:*:*: {
+  if (%ctcp.prtfl != $true) {
+    %ctcp.prtfl = $true
+    if ($1 == VERSION) { if ($readini($cfgfile,ctcp,version) == 켜짐) { .ctcpreply $nick VERSION $version } }
+    elseif ($1 == UPTIME) { if ($readini($cfgfile,ctcp,uptime) == 켜짐) { .ctcpreply $nick UPTIME $uptime(system) } }
+    elseif ($1 == IP) { if ($readini($cfgfile,ctcp,ip) == 켜짐) { .ctcpreply $nick IP $ip } }
+    elseif ($1 == TIME) { if ($readini($cfgfile,ctcp,time) == 켜짐) { .ctcpreply $nick TIME $asctime } }
+    elseif ($1 == OS) { if ($readini($cfgfile,ctcp,os) == 켜짐) { .ctcpreply $nick OS $os } }
+    elseif ($1 == FINGER) { if ($readini($cfgfile,ctcp,finger) == 켜짐) {
+        if ($readini($mircini,mirc,user) == $logof) { .ctcpreply $nick FINGER $logof ( $+ $emailaddr $+ ) Idle $idle secs }
+        else { .ctcpreply $nick FINGER $fullname ( $+ $emailaddr $+ ) Idle $idle secs }
+      }
+    }
+    elseif ($1 == CONFIRM_ZISN) { .ctcpreply $nick CONFIRM_ZISN $logomf }
+    .timerprtfl 1 10 unset %ctcp.prtfl
+  }
+}
+
+;; 종료 부분 ;;
+;; 종료시 모든 변수를 삭제합니다 ;;
+on 1:EXIT:{ unsetall | dde_server exit | halt }

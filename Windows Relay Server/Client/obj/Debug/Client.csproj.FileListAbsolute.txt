@@ -1,0 +1,6 @@
+C:\Users\MAERYO\Desktop\All_Seeing_RC\서버\Client\bin\Debug\DDE_Client.exe.config
+C:\Users\MAERYO\Desktop\All_Seeing_RC\서버\Client\bin\Debug\DDE_Client.exe
+C:\Users\MAERYO\Desktop\All_Seeing_RC\서버\Client\bin\Debug\DDE_Client.pdb
+C:\Users\MAERYO\Desktop\All_Seeing_RC\서버\Client\bin\Debug\NDde.dll
+C:\Users\MAERYO\Desktop\All_Seeing_RC\서버\Client\obj\Debug\DDE_Client.exe
+C:\Users\MAERYO\Desktop\All_Seeing_RC\서버\Client\obj\Debug\DDE_Client.pdb

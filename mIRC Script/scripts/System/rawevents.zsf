@@ -1,0 +1,320 @@
+#rawevents on
+raw *:*: {
+  ;; 001 - RPL_WELCOME, 002 - RPL_YOURHOST
+  ;; 003 - RPL_CREATED, 004 - RPL_MYINFO : RFC2812
+  if ($numeric == 1) { echo -s 0 $+  $+ $strip($logo,urc) 4 $+ $me $+ 님의 접속을 환영합니다. | halt }
+  elseif ($numeric == 2) { echo -s 0 $+ $strip($logo,urc) 접속하신 서버는 5 $+  $+ $remove($5,$chr(44)) $+  이며, 버전은 3 $+  $+ $8 $+  입니다. | halt }
+  elseif ($numeric == 3) { halt }
+  elseif ($numeric == 4) { echo -s 0 $+  $+ $strip($logo,urc) 사용 가능한 유저 모드 :7 $4, 사용 가능한 채널 모드 :7 $5 | set %raw5 1 | halt }
+
+  ;; 005 - RPL_ISUPPORT (RPL_PROTOCTL : Bahamut, Unreal, Ultimate)
+  elseif ($numeric == 5) {
+    if ($network == freenode) {
+      if (%raw5 == 1) {
+        ;;echo -s 0 $+  $+ $strip($logo,urc) 10 $+ $gettok($1-,2- $+ $calc($findtok($1-,$matchtok($2-,$chr(61),1,32),1,32) -1),32) 를 추가로 지원합니다.
+        echo -s 0 $+  $+ $strip($logo,urc) 채널은 최대7 $right($gettok($matchtok($1-,CHANLIMIT,1,32),2,61),3) $+ 개까지 입실하실 수 있습니다.
+        echo -s 0 $+  $+ $strip($logo,urc) 지원되는 채널 타입은4 $gettok($matchtok($2-,CHANTYPES,1,32),2,61) $+ , 채널 유저 분류는3 $replace($gettok($matchtok($2-,PREFIX,1,32),2,61),o,오퍼 $+ $chr(44) $+ $chr(32),h,하프옵 $+ $chr(44) $+ $chr(32),v,보이스) $+ , $&
+          지원되는 채널 모드는3 $gettok($matchtok($2-,CHANMODES,1,32),2,61) $+  $+ 입니다.
+        inc %raw5
+      }
+      elseif (%raw5 == 2) { 
+        echo -s 0 $+  $+ $strip($logo,urc) 최대 채널 길이는6 $gettok($matchtok($1-,CHANNELLEN,1,32),2,61) $+ 자이며, 최대 토픽 길이는 영문6 $gettok($matchtok($1-,TOPICLEN,1,32),2,61) $+ 자 입니다.
+        echo -s 0 $+  $+ $strip($logo,urc) 사용하실 수 있는 닉네임의 길이는 영문4 $gettok($matchtok($1-,NICKLEN,1,32),2,61) $+ 자, 한글4 $calc($gettok($matchtok($1-,NICKLEN,1,32),2,61) / 2) $+ 자 입니다.
+        echo -s -
+        .unset %raw5
+      }
+    }
+    else { echo -s 0 $+ $strip($logo,urc) $2- }
+    if ($gettok($matchtok($1-,CHANLIMIT,1,32),2,61) != $null) { .writeini -n $cfgfile 채널 $network $+ $chr(48) $right($gettok($matchtok($1-,CHANLIMIT,1,32),2,61),3) }
+    halt
+  }
+  ;; 219 - RPL_ENDOFSTATS : RFC1459
+  elseif ($numeric == 219) { halt }
+
+  ;; 242 - RPL_STATSUPTIME : RFC1459, 250 - RPL_STATSCONN : ircu, Unreal
+  elseif ($numeric == 242) { echo -a $logo 현재 4 $+  $+ $server $+  서버의 업타임은 10 $+ $4 $+ 일 $gettok($6,1,58) $+ 시간 $gettok($6,2,58) $+ 분 $gettok($6,3,58) $+ 초입니다. | halt }
+  ;;elseif ($numeric == 250) { echo -a 0 $+  $+ $strip($logo,urc) 4 $+ $server $+  서버 최고 동시 접속수 : 10 $+ $5-7 | halt }
+  elseif ($numeric == 250) { halt }
+
+  ;; 251 - RPL_LUSERCLIENT, 252 - RPL_LUSEROP
+  ;; 253 - RPL_LUSERUNKNOWN, 254 - RPL_LUSERCHANNELS
+  ;; 255 - RPL_LUSERME : RFC1459
+  elseif ($numeric == 251) { echo -s 0 $+  $+ $strip($logo,urc) 10 $+ $network $+  네트워크 정보입니다. | echo -s 0 $+  $+ $strip($logo,urc) 10 $+ $10 $+ 개의 서버에 10 $+ $4 $+ 명의 공개 유저와 10 $+ $7 $+ 명의 비공개 유저들이 접속하고 있습니다. | halt }
+  elseif ($numeric == 252) { echo -s 0 $+  $+ $strip($logo,urc) 10 $+ $2 $+ 명의 서버 관리자가 접속하고 있습니다. | halt }
+  elseif ($numeric == 253) { echo -s 0 $+  $+ $strip($logo,urc) 10 $+ $2 $+ 개의 알 수 없는 연결이 있습니다. | halt }
+  elseif ($numeric == 254) { echo -s 0 $+  $+ $strip($logo,urc) 현재 네트워크에서10 $2 $+ 개의 채널이 확인되었습니다. | halt } 
+  ;;elseif ($numeric == 255) { echo -s 0 $+  $+ $strip($logo,urc) 접속한 서버 5 $+  $+ $server $+ 에는10 $4 $+ 명의 사용자들이 접속하고 있습니다. | halt }
+  elseif ($numeric == 255) { halt }
+
+  ;; 256 - RPL_ADMINME, 257 - RPL_ADMINLOC1
+  ;; 258 - RPL_ADMINLOC2, 259 - RPL_ADMINEMAIL : RFC1459
+  elseif ($numeric == 256) { echo -a $logo 5 $+  $+ $5 $+  서버 관리자 정보입니다. | halt }
+  elseif ($numeric == 257) { echo -a 0 $+  $+ $strip($logo,urc) $2- | halt }
+  elseif ($numeric == 258) { echo -a 0 $+  $+ $strip($logo,urc) $2- | halt }
+  elseif ($numeric == 259) { echo -a 0 $+  $+ $strip($logo,urc) $2- | halt }
+
+  ;; 265 - RPL_LOCALUSERS, 266 - RPL_GLOBALUSERS : aircd, Hybrid, Hybrid, Bahamut
+  elseif ($numeric == 265) { echo -s 0 $+  $+ $strip($logo,urc) 접속하신 서버 5 $+  $+ $server $+ 에는10 $2 $+ 명의 사용자들이 접속하고 있습니다. (최대 접속 기록 :10 $3 $+ 명) | halt }
+  elseif ($numeric == 266) { echo -s 0 $+  $+ $strip($logo,urc) 접속하신 네트워크 5 $+  $+ $server $+ 에는10 $2 $+ 명의 사용자들이 접속하고 있습니다. (최대 접속 기록 :10 $3 $+ 명) | halt }
+
+  ;; 332 - RPL_TOPIC : RFC1459, 333 - RPL_TOPICWHOTIME : ircu
+  ;; 채널에 입실하였을 때 표시되는 채널 설정입니다.
+
+  elseif ($numeric == 332) {
+    writeini -n $cfgfile c-buf $2 rcvd
+    echo $2 [1채널 제목] $3-
+    halt
+  }
+  elseif ($numeric == 333) {
+    echo $2 [14제목 설정] $iif($3- != $null,$3 ( $+ $&
+      $replace($asctime($4,yyyy년 mm월 dd일 ddd요일 TT hh시 nn분 ss초), $&
+      AM,오전,PM,오후,Mon,월,Tue,화,Wed,수,Thu,목,Fri,금,Sat,토,Sun,일) $+ ),$null)
+    halt
+  }
+
+  ;; 352 - RPL_WHOREPLY, 315 - RPL_ENDOFWHO : RFC1459
+  ;; 354의 경우 기본 양식이 아닌, 조건을 지정해준 양식일 경우에 받을 수 있는 이벤트입니다.
+  elseif ($numeric == 354) {
+    if ($len(%fr) <= 454) { %fr = %fr $2 }
+    else {
+      if (%fa == $null) { %fa = $true | .echo -a $logo 검색 결과 : $replace(%fr,$chr(32),$chr(44) $+ $chr(32) $+ ) }
+      else { .echo -a $replace(%fr,$chr(32),$chr(44) $+ $chr(32) $+ ) }
+      inc %fn $numtok(%fr,32) | %fr = $2
+    }
+    ;if ($window(@찾기).cid == $null) { window -ael16S @찾기 }
+    ;aline -l @찾기 $2
+    halt
+  }
+  elseif ($numeric == 315) {
+    if (%f == c) || (%f == u) {
+      if (%fn >= 1) || ($numtok(%fr,32) >= 1) {
+        .echo -a $iif(%fa == $true,$null,$logo 검색 결과 :) $replace(%fr,$chr(32),$chr(44) $+ $chr(32) $+ )
+        .echo -a 4 $+  $+ $calc(%fn + $numtok(%fr,32)) $+  $+ 명의 유저를 검색하였습니다.
+      }
+      else { echo -a $logo 해당 $iif($left($2,1) isin $chantypes,채널의 유저,유저) $+ 를 찾을 수 없습니다. }
+    }
+    .unset %f | .unset %f? | halt
+  }
+
+  ;; 353 - RPL_NAMEREPLY : RFC1459, 355 - RPL_NAMREPLY_ : QuakeNet,
+  ;; 366 - RPL_ENDOFNAMES : RFC1459
+  ;; 채널에 조인했을 때의 접속자 목록을 보여주는 부분입니다.
+  ;; 일단은 X-IRC 의 것을 거의 그대로 차용했습니다.
+  elseif ($numeric == 353) {
+    if (%raw353 != $true) { .set %raw353 $true | .echo -s [ $+ $3 $+ ] | if ($4- != $null) { .echo -s $4- } }
+    else { .echo -s $4- } | halt
+  }
+  elseif ($numeric == 355) {
+    if ($4- == $null) { echo -a $logo $3 채널에서 숨겨진 유저가 존재하지 않습니다. }
+    else { echo -a $logo $3 채널에서 숨겨진 유저 목록입니다. | echo -a $4- }
+    halt
+  }
+
+  elseif ($numeric == 366) {
+    if ($readini($cfgfile,c-buf,$2) != rcvd) {
+      if ($readini($cfgfile,c-buf,$2) == in) { echo $2 - | echo $2 [1채널 제목] | echo $2 [14제목 설정] }
+    }
+    if ($readini($cfgfile,c-buf,$2) != $null) { 
+      dde asirc_server "" [내입장] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 $nick($2,0)
+    echo $2 [14채널 인원] 오퍼/ $+ $opnick($2,0) $+ , 일반/ $+ $nopnick($2,0) $+ , 보이스/ $+ $vnick($2,0) $+ , 3전체/ $+ $nick($2,0,a) | echo $2 - }
+    .remini $cfgfile c-buf $2
+    unset %raw353
+    halt
+  }
+
+  ;; 301 - RPL_AWAY : RFC1459, 311 - RPL_WHOISUSER
+  ;; 312 - RPL_WHOISSERVER, 313 - RPL_WHOISOPERATOR
+  ;; 317 - RPL_WHOISIDLE, 318 - RPL_ENDOFWHOIS
+  ;; 319 - RPL_WHOISCHANNELS : RFC1459,
+  ;; 330 - RPL_WHOISACCOUNT : ircu,
+  ;; 338 - RPL_WHOISACTUALLY : ircu, Bahamut
+  ;; /whois 부분
+  ;; /whowas 의 경우는 /whois 와 구별하기 위해
+  ;; ~님의 사용자 정보 뒤에 구문을 추가하였습니다.
+  elseif ($numeric == 311) {
+    %w = $true
+    echo -a 
+    echo -a 1       4 $2 $+ 2 님의 사용자 정보
+    echo -a 
+    set %w_adr 주소: $+ $3 $+ @ $+ $4 | echo -a 1 4*  2연결주소14: $3 $+ @ $+ $4
+    set %w_name 사용자명: $+ $6- | echo -a 1 4*  2사용자명14: $6-
+    halt
+  }
+  elseif ($numeric == 319) {
+    set %w_chanlist 채널: $+ $3-7
+    $iif( $8 != $null,set %w_chanlist %w_chanlist $+ $chr(32) $+ $8-12)
+    $iif( $13 != $null,set %w_chanlist %w_chanlist $+ $chr(32) $+ $13-17)
+    $iif( $18 != $null,set %w_chanlist %w_chanlist $+ $chr(32) $+ $18-22)
+    echo -a 1 4*  2입실채널14:1 $3-7
+    $iif( $8 != $null,echo -a 14　　　  　　 0:1 $8-12)
+    $iif( $13 != $null,echo -a 14　　　  　　 0:1 $13-17)
+    $iif( $18 != $null,echo -a 14　　　  　　 0:1 $18-22)
+    halt
+  }
+  elseif ($numeric == 312) { if (%raw312 != $true) { set %w_server 서버: $+ $3 * $4- | echo -a 1 4*  2접속서버14: $3 * $4- | if (%whowas == $true) { .set %raw312 $true } } | halt }
+  elseif ($numeric == 330) {
+    set %w_auth 인증: $+ $3
+    echo -a 1 4*  2인증정보14:1 $2 님은 $3 사용자로 로그인되었습니다.
+    halt 
+  }
+  elseif ($numeric == 338) { echo -a 1 3*  2실제주소14:1 $3 $chr(91) $+ $4 $+ $chr(93) | halt }
+  elseif ($numeric == 307) { echo -a 1 4*  2별명정보14:1 $2 $+ 님의 닉네임은 등록된 닉네임 입니다. | halt }
+  elseif ($numeric == 301) { 
+    if (%w == $true) { 
+      set %w_state 상태: $+ $3-
+      echo -a 1 4*  2현재상태14: $3-
+    } 
+    halt 
+  }
+  elseif ($numeric == 313) { 
+    set %w_auth 인증:serveroperator
+    echo -a 1 4*  12서버오퍼14: 이 사용자는 IRC 오퍼레이터입니다. 
+    halt
+  }
+  elseif ($numeric == 317) {
+    set %w_idle 유휴시간: $+ $remove($replace($duration($3),wk,주,day,일,hr,시간,min,분,sec,초),s)
+    set %w_time 접속일시: $+ $replace($asctime($4,yyyy년 mm월 dd일 ddd요일 TT hh시 nn분 ss초),Mon,월,Tue,화,Wed,수,Thu,목,Fri,금,Sat,토,Sun,일,AM,오전,PM,오후)
+    echo -a 1 4*  2유휴시간14: $remove($replace($duration($3),wk,주,day,일,hr,시간,min,분,sec,초),s)
+    echo -a 1 4*  2접속일시14: $replace($asctime($4,yyyy년 mm월 dd일 ddd요일 TT hh시 nn분 ss초),Mon,월,Tue,화,Wed,수,Thu,목,Fri,금,Sat,토,Sun,일,AM,오전,PM,오후)
+    halt
+  }
+  elseif ($numeric == 318) { if (%w == $true) { dde asirc_server "" [정보] %w_adr ㎯ %w_name ㎯ %w_chanlist ㎯ %w_server ㎯ %w_state ㎯ %w_idle ㎯ %w_time ㎯ %w_auth | echo -a  } | .unset %w* | halt }
+
+  ;; 314 - RPL_WHOWASUSER, 369 - RPL_ENDOFWHOWAS : RFC1459
+  ;; /whowas 부분
+  elseif ($numeric == 314) {
+    set %whowas $true
+    if (%raw314 != $true) {
+      echo -a 1
+      echo -a 1       4 $2 $+ 2 님의 사용자 정보 (현재 비접속중인 닉네임입니다)
+      echo -a 1
+      echo -a 1 4*  2연결주소14: $3 $+ @ $+ $4
+      echo -a 1 4*  2사용자명14: $6-
+      .set %raw314 $true
+      halt
+    }
+  }
+  elseif ($numeric == 369) { echo -a 1 | .unset %whowas | .unset %raw312 | .unset %raw314 | halt }
+
+  ;; 302 - RPL_USERHOST : RFC1459, 340 - RPL_USERIP : ircu
+  ;; /userhost, /userip 부분
+  elseif ($numeric == 302) {
+    if ($2- != $null) {
+      if ((%밴.확인 == $true) && (%밴.채널 != $null)) {
+        mode %밴.채널 +b $mask($remove($gettok($2,1,61),$chr(42)) $+ $chr(33) $+ $mid($gettok($2,2,61),2,$calc($len($gettok($2,2,61)) -1)),2)
+        unset %밴.확인 | unset %밴.채널
+      }
+      elseif (%이그노어.확인 == $true) {
+        ignore $mask($remove($gettok($2,1,61),$chr(42)) $+ $chr(33) $+ $mid($gettok($2,2,61),2,$calc($len($gettok($2,2,61)) -1)),2)
+        unset %이그노어.확인
+        echo -a $logo $gettok($2,1,61) 님을 이그노어 목록에 추가하였습니다.
+      }
+      elseif (%이그노어.삭제 == $true) {
+        ignore -r $mask($remove($gettok($2,1,61),$chr(42)) $+ $chr(33) $+ $mid($gettok($2,2,61),2,$calc($len($gettok($2,2,61)) -1)),2)      
+        unset %이그노어.삭제
+        echo -a $logo $gettok($2,1,61) 님을 이그노어 목록에서 삭제하였습니다.
+      }
+      else { echo -a $logo $remove($gettok($2,1,61),$chr(42)) 님의 연결주소 : $mid($gettok($2,2,61),2,$calc($len($gettok($2,2,61)) -1)) }
+    }
+    else { echo -a $logo 대상 닉네임을 찾을 수 없습니다. }
+    halt
+  }
+  elseif ($numeric == 340) { echo -a $logo $iif($2- != $null,$remove($gettok($2,1,61),$chr(42)) 님의 IP : $mid($gettok($2,2,61),2,$calc($len($gettok($2,2,61)) -1)),대상 닉네임을 찾을 수 없습니다.) | halt }
+
+  ;; 305 - RPL_UNAWAY, 306 - RPL_NOWAWAY : RFC1459
+  ;; 자신이 away 를 설정했을 때와, 설정을 해제했을 때
+  ;; 각각 306, 305 numeric 메시지를 수신합니다.
+  ;; 굳이 필요하지 않아 halt 로 처리해 두었습니다.
+  elseif ($numeric == 305) { halt }
+  elseif ($numeric == 306) { halt }
+
+  ;; 321 - RPL_LISTSTART, 323 - RPL_LISTEND : RFC1459
+  elseif ($numeric == 321) { halt }
+  elseif ($numeric == 323) { halt }
+
+  ;; 371 - RPL_INFO, 372 - RPL_MOTD
+  ;; 374 - RPL_ENDOFINFO, 375 - RPL_MOTDSTART
+  ;; 376 - RPL_ENDOFMOTD : RFC1459
+  elseif ($numeric == 371) {
+    if (%info.dsp != $true) { %info.dsp = $true | echo -s $logo $2- }
+    elseif (%info.dsp == $true) { echo -s 0 $+  $+ $strip($logo,urc) $2- }
+    halt
+  }
+  elseif ($numeric == 372) { if (%motd.dsp == $true) { if ($3- != $null) { echo -s 0 $+  $+ $strip($logo,urc) $3- | halt } | else { echo -s  | halt } } }
+  elseif ($numeric == 374) { unset %info.dsp | halt }
+  elseif ($numeric == 375) { echo -s 0 $+  $+ $strip($logo,urc) 4 $+  $+ $3 $+  서버의 MOTD( $+ $4-7 $+ )입니다. | echo -s  | %motd.dsp = $true | halt }
+  elseif ($numeric == 376) { unset %motd.dsp | echo -s  | echo -s $logo MOTD 파일의 끝입니다. | halt }
+
+  ;; 351 - RPL_VERSION : RFC1459
+  elseif ($numeric == 351) { echo -s $logo $2- | halt }
+
+  ;; 391 - RPL_TIME : RFC1459
+  ;; 서버가 인식하는 현재의 시간을 /time 명령어를 사용한 유저에게 전송하여 줍니다.
+  elseif ($numeric == 391) { var %server.time = $remtok($gettok($1-,$findtok($1-,$matchtok($3-,day,1,32),1,32) $+ -,32),--,1,32)
+    echo -a $logo 5 $+  $+ $2 $+  서버의 현재 시간 : $gettok(%server.time,4,32) $+ 년 $replace($left($gettok(%server.time,2,32),3),Jan,1,Feb,2,Mar,3,Apr,4,May,5,Jun,6,Jul,7,Aug,8,Sep,9,Oct,10,Nov,11,Dec,12) $+ 월 $&
+    $gettok(%server.time,3,32) $+ 일 $gettok(%server.time,5,32) $chr(91) $+ GMT $gettok(%server.time,6,32) $+ $chr(93) | halt }
+
+  ;; 331 - RPL_NOTOPIC : RFC1459
+  ;; 해당 채널($2)의 토픽이 없을때 수신됩니다.
+  elseif ($numeric == 331) { echo -a $logo $2 채널의 토픽이 설정되어 있지 않습니다. | halt }
+
+  ;; 341 - RPL_INVITING : RFC1459
+  ;; 특정 사용자를 초대하였을 때 수신되는 메시지 부분입니다.
+  elseif ($numeric == 341) { echo -a $logo $2 님을 $3 채널로 초대하였습니다. | dde asirc_server "" [알림] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 님을 $3 채널로 초대하였습니다. | halt }
+
+  ;; 396 - RPL_HOSTHIDDEN : Undernet
+  elseif ($numeric == 396) { echo -s $logo $me $+ 님의 주소를 $2 로 감췄습니다. | halt }
+
+  ;; 이하는 오류, 요청 거부 등의 메시지입니다.
+  elseif ($numeric == 401) { echo -a $erlogo 입력하신 사용자 혹은 채널을 찾을 수 없습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) 사용자 혹은 채널을 찾을 수 없습니다. | halt }
+  elseif ($numeric == 402) { echo -a $erlogo 입력하신 사용자를 찾을 수 없습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) 입력하신 사용자를 찾을 수 없습니다. | halt }
+  elseif ($numeric == 403) { echo -a $erlogo $2 채널을 찾을 수 없습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 채널을 찾을 수 없습니다. | halt }
+  elseif ($numeric == 404) { if (m isin $gettok($chan($2).mode,1,32)) { echo -a $logo $2 채널은 말하기 제한이 설정되어 있습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 채널은 말하기 제한이 설정되어 있습니다. } | else dde asirc_server "" [에러] $iif($left($2,1) isin $chantypes,$2 채널에,$2 님에게) 메세지를 전달할 수 없습니다. | echo -a $logo $iif($left($2,1) isin $chantypes,$2 채널에,$2 님에게) 메세지를 전달할 수 없습니다. | halt }  
+  elseif ($numeric == 405) { echo -a $erlogo 입실하신 채널의 수가 서버 기준치인 $chan(0) $+ 개이므로 더 이상 입실하실 수 없습니다.  | halt }
+  elseif ($numeric == 406) { echo -a $erlogo 입력하신 사용자에 관한 기록을 찾을 수 없습니다. | halt }
+  elseif ($numeric == 407) { halt }
+  elseif ($numeric == 411) { echo -a $erlogo 대상이 지정되지 않았습니다. $5 | halt }
+  elseif ($numeric == 416) { echo -a $logo 데이터가 너무 많아 요청을 제한합니다. | halt }
+  elseif ($numeric == 421) {
+    dde asirc_server "" [에러] 없는 명령입니다. : $readini(mirc.ini,text,commandchar) $+ $upper($2)
+    echo -a $erlogom 없는 명령입니다. : $readini(mirc.ini,text,commandchar) $+ $upper($2)
+    ;; raw 부분 명령어 무한 루프 오류 시 disable 선언 부분.
+    if (%e == $null) { set %e 1 } | else { inc %e } | .timerus.e 1 3 .unset %e
+    if (%e >= 10) { .disable #rawevents | .echo -a $logo 스크립트 에러로 인하여 $script 의 기능을 비활성화 하였습니다. }
+    ;; 종료
+    halt
+  }
+  elseif ($numeric == 422) { echo -s $logo 오늘의 메시지(Message Of The Day)가 없습니다. | halt }
+  elseif ($numeric == 423) { echo -a $logo 현재 서버 관리자에 대한 정보를 제공하지 않습니다. | halt }
+
+  elseif ($numeric == 431) { echo -a $erlogo 대화명을 입력하지 않으셨습니다. | halt }
+  elseif ($numeric == 432) { echo -a $erlogo 다음 대화명은 사용하실 수 없습니다. : $2 | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) 해당 대화명은 사용하실 수 없습니다. : $2 | halt }
+  elseif ($numeric == 433) { echo -a $erlogo 다음 대화명은 이미 사용중입니다. : $2 | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) 해당 대화명은 이미 사용중입니다. : $2 | halt }
+  elseif ($numeric == 436) { echo -a $erlogo 등록된 닉이 이미 다른 서버에 존재합니다. | halt }
+  elseif ($numeric == 438) { echo -a $erlogo 다음 닉네임 변경까지 남은 시간은 $9 $+ 초입니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) 다음 닉네임 변경까지 남은 시간은 $9 $+ 초입니다. | halt }
+  elseif ($numeric == 440) { echo -a $erlogo 서비스 다운 상태입니다. | halt }
+  elseif ($numeric == 441) { echo -a $erlogo 입력하신 사용자를 찾을 수 없습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) 입력하신 사용자를 찾을 수 없습니다. | halt }
+
+  elseif ($numeric == 442) { echo -a $erlogo $2 채널에 입실하고 있지 않아 명령을 수행할 수 없습니다. | halt }
+  elseif ($numeric == 443) { echo -a $erlogo $2 님은 $3 채널에 이미 입실하셨습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 님은 $3 채널에 이미 있습니다. | halt }
+  elseif ($numeric == 461) { echo -a $erlogo 매개변수가 부족합니다. | halt }
+  elseif ($numeric == 465) { .quit | echo -s $logo 12 $+ $network $+  네트워크에 접속할 수 없습니다. (ERR_YOUREBANNEDCREEP) | halt }
+  elseif ($numeric == 467) { echo -a $erlogo $2 채널에 같은 암호가 이미 설정되어 있습니다. | halt }
+  elseif ($numeric == 471) { echo -a $erlogo $2 채널의 입실자 제한으로 입실하실 수 없습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 채널의 제한으로 입장하실 수 없습니다. | halt }
+  elseif ($numeric == 472) { echo -a $erlogo $2 는 채널 모드로 설정할 수 없는 모드입니다. | halt }
+  elseif ($numeric == 473) { echo -a $erlogo $2 채널은 오직 초대를 이용한 입실만 가능합니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 채널은 초대를 받아야 입장하실 수 있습니다. | halt }
+  elseif ($numeric == 474) { echo -a $erlogo $2 채널에서 불량이용자가 되어 입실하실 수 없습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 채널에서 불량 이용자가 되어 입장하실 수 없습니다. | halt }
+  elseif ($numeric == 475) { echo -a $erlogo $2 채널의 비밀번호가 잘못되었습니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 채널의 비밀번호가 잘못되었습니다. | halt }
+  elseif ($numeric == 477) {
+    echo -a $erlogo $2 채널은 인증한 유저만이 입실할 수 있습니다.
+    if ($network == HanIRC) { echo -a 0 $+  $+ $strip($erlogo,urc) 인증에 필요한 계정은 12 $+ $18 $+  에서 생성할 수 있습니다. }
+    halt
+  }
+  elseif ($numeric == 478) { echo $2 $erlogo $2 채널의 밴/이그노어 허용 수를 초과하였습니다. ( $+ $3 $+ ) | halt }
+  elseif ($numeric == 481) { echo -a $erlogo IRC 오퍼레이터가 아닙니다. | halt }
+  elseif ($numeric == 482) { echo -a $erlogo $2 채널의 오퍼레이터가 아닙니다. | halt }
+  elseif ($numeric == 484) { echo -a $erlogo 요청이 서버에 의해 거부되었습니다. | halt }
+  elseif ($numeric == 489) { echo -a $erlogo $2 채널에서 옵 또는 보이스를 가지고 있어야 합니다. | dde asirc_server "" [에러] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $2 채널의 권한이 필요합니다. | halt }
+  elseif ($numeric == 501) { echo -s $erlogo $2 는 유저 모드로 설정할 수 없는 모드입니다. | halt }
+}
+#rawevents end

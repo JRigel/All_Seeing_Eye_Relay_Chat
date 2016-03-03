@@ -1,0 +1,321 @@
+r;; 기본적인 알리아스
+/op /mode # +oooooo $$1 $2 $3 $4 $5 $6
+/dop /mode # -oooooo $$1 $2 $3 $4 $5 $6
+/j /join #$$1 $2-
+/p /part #
+/n /names #$$1
+/whois /whois $$1 $$1
+/w /whois $$1 $$1
+/k /kick # $$1 $2-
+/q /query $$1
+/send /dcc send $1 $2
+/chat /dcc chat $1
+/ping /ctcp $$1 ping
+/s /server $$1-
+/nick { if ($$1 != $null) { .anick $$1 | .nick $$1 } }
+
+입실 /join #$$1 $2-
+입장 /join #$$1 $2-
+조인 /join #$$1 $2-
+
+;; F1~F12 핫키 알리아스.
+F1 help
+F2 .join -i
+F3 run $getdir
+;F4
+;F5
+F6 echo -a $logo 3초 후 트레이 상태로 전환합니다. | .timersmt 1 3 showmirc -t
+F7 if (%dlfile != $null) { run %dlfile }
+F8 sc
+F9 dialog -ma Autojoin_Controller Autojoin_Controller
+;F10
+;F11
+F12 config
+
+;; 매크로 알리아스.
+;; custom_macro는 $cfgfile 안에 저장된 매크로를 읽어 return 하는 알리아스
+;; sF? == Shift + F?, cF? == Ctrl + F?
+
+custom_macro {
+  return $right($read($cfgfile,w,$1 $+ =*),$calc($len($read($cfgfile,w,$1 $+ =*)) - $len($1 $+ =)))
+}
+
+sF1 { if ($custom_macro(sF1) != $null) { say_advanced $custom_macro(sF1) } }
+sF2 { if ($custom_macro(sF2) != $null) { say_advanced $custom_macro(sF2) } }
+sF3 { if ($custom_macro(sF3) != $null) { say_advanced $custom_macro(sF3) } }
+sF4 { if ($custom_macro(sF4) != $null) { say_advanced $custom_macro(sF4) } }
+sF5 { if ($custom_macro(sF5) != $null) { say_advanced $custom_macro(sF5) } }
+sF6 { if ($custom_macro(sF6) != $null) { say_advanced $custom_macro(sF6) } }
+sF7 { if ($custom_macro(sF7) != $null) { say_advanced $custom_macro(sF7) } }
+sF8 { if ($custom_macro(sF8) != $null) { say_advanced $custom_macro(sF8) } }
+sF9 { if ($custom_macro(sF9) != $null) { say_advanced $custom_macro(sF9) } }
+sF10 { if ($custom_macro(sF10) != $null) { say_advanced $custom_macro(sF10) } }
+sF11 { if ($custom_macro(sF11) != $null) { say_advanced $custom_macro(sF11) } }
+sF12 { if ($custom_macro(sF12) != $null) { say_advanced $custom_macro(sF12) } }
+
+cF1 { if ($custom_macro(cF1) != $null) { say_advanced $custom_macro(cF1) } }
+cF2 { if ($custom_macro(cF2) != $null) { say_advanced $custom_macro(cF2) } }
+cF3 { if ($custom_macro(cF3) != $null) { say_advanced $custom_macro(cF3) } }
+cF4 { if ($custom_macro(cF4) != $null) { say_advanced $custom_macro(cF4) } }
+cF5 { if ($custom_macro(cF5) != $null) { say_advanced $custom_macro(cF5) } }
+cF6 { if ($custom_macro(cF6) != $null) { say_advanced $custom_macro(cF6) } }
+cF7 { if ($custom_macro(cF7) != $null) { say_advanced $custom_macro(cF7) } }
+cF8 { if ($custom_macro(cF8) != $null) { say_advanced $custom_macro(cF8) } }
+cF9 { if ($custom_macro(cF9) != $null) { say_advanced $custom_macro(cF9) } }
+cF10 { if ($custom_macro(cF10) != $null) { say_advanced $custom_macro(cF10) } }
+cF11 { if ($custom_macro(cF11) != $null) { say_advanced $custom_macro(cF11) } }
+cF12 { if ($custom_macro(cF12) != $null) { say_advanced $custom_macro(cF12) } }
+
+;; 안티아이들 알리아스.
+;; 안티아이들 사용 설정 시 자기 자신의 주소를 이그노어 목록에 추가하고
+;; 자기 자신에게 메시지를 보냄으로써, 메시지를 보내는 방법으로
+;; 유휴 시간을 초기화 시킴. 간격은 60초 설정.
+anti-idle {
+  .echo -s $logo Anti-idle 기능을 활성화합니다.
+  .ignore -p *! $+ $readini(mirc.ini,ident,userid) $+ @ $+ $ip
+  .msg $me .
+  .timeranti-idle 0 60 .msg $me .
+  .away Running 'Anti-Idle'. Initialized every minute of idle time.
+}
+
+disable_anti-idle {
+  .echo -s $logo Anti-idle 기능을 비활성화합니다.
+  .ignore -pr *! $+ $readini(mirc.ini,ident,userid) $+ @ $+ $ip
+  .timeranti-idle off
+  .away
+}
+
+smart_auth {
+  writeini -n $cfgfile 설정 스마트폰 인증
+  if ($dialog(setting) != $null) {
+    did -m setting 4 
+    did -ra setting 4 **** 
+    did -ra setting 5 인증해제
+    did -ra setting 6 인증이 완료되었습니다!
+  }
+}
+
+smart_auth_cancel {
+  writeini -n $cfgfile 설정 스마트폰 미인증
+  if ($dialog(setting) != $null) {
+    did -n setting 4 
+    did -r setting 4
+    did -ra setting 5 인증
+    did -ra setting 6 인증 번호를 입력하세요.
+  }
+}
+
+smart_auth_cancel_phone {
+  dde asirc_server "" [폰인증해제]
+}
+
+dde_server {
+  if ($1 == shutdown) {
+    dde asirc_server "" [shutdown]
+    echo 3 -at DDE_Relay Server [ 4Shutdown 3]
+  }
+  elseif ($1 == debug) {
+    dde asirc_server "" [shutdown]
+    .run $dde_relay $1-
+    echo 3 -at DDE_Relay Server [ 4Debug Mode Start 3]
+  }
+  else {
+    dde asirc_server "" [shutdown]
+    .run $dde_relay
+    echo 3 -at DDE_Relay Server [ 4Start 3]
+  }
+}
+
+dde_alive {
+  echo 3 -at DDE_Relay Server State : [ 4Running 3]
+}
+
+hg_add {
+  write highlight.ini $1-
+  dde asirc_server "" [강조추가] $1-
+}
+
+hg_del {
+  var %i 0
+  while (%i <= $lines(highlight.ini)) {
+    var %temp $read(highlight.ini,[ %i ])
+    if ($1- == %temp) {
+      write -dl $+ %i highlight.ini
+    }
+    inc %i
+  }
+  dde asirc_server "" [강조삭제] $1-
+}
+
+n_list {
+  var %nick = $nick($1,0) ;; 총인원
+  var %nick2 = $nick($1,0)
+  var %cnt = 1
+  if (%nick > 0) {
+    while (%nick > 0 && %cnt < 400 && %cnt <= %nick2) {
+      var %nick_list = %nick_list $+ $nick($1,%cnt).pnick $+ $chr(44)
+      inc %cnt
+      dec %nick
+    }
+    dde asirc_server "" [닉목록1] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $1 $nick($1,0) %nick_list
+  }
+  if (%cnt > 399) {
+    while (%nick > 0 && %cnt < 800 && %cnt <= %nick2) {
+      var %nick_list1 = %nick_list1 $+ $nick($1,%cnt).pnick $+ $chr(44)
+      inc %cnt
+      dec %nick
+    }
+    dde asirc_server "" [닉목록2] $asctime(yyyy.mm.dd.HH.nn.ss) $1 $nick($1,0) %nick_list1
+  } 
+  if (%cnt > 799) {
+    while (%nick > 0 && %cnt < 1200 && %cnt <= %nick2) {
+      var %nick_list2 = %nick_list2 $+ $nick($1,%cnt).pnick $+ $chr(44)
+      inc %cnt
+      dec %nick
+    }
+    dde asirc_server "" [닉목록3] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $1 $nick($1,0) %nick_list2
+  }
+  if (%cnt > 1199) {
+    while (%nick > 0 && %cnt < 1600 && %cnt <= %nick2) {
+      var %nick_list3 = %nick_list3 $+ $nick($1,%cnt).pnick $+ $chr(44)
+      inc %cnt
+      dec %nick
+    }
+    dde asirc_server "" [닉목록4] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $1 $nick($1,0) %nick_list3
+  }
+  if (%cnt > 1599) {
+    while (%nick > 0 && %cnt < 2000 && %cnt <= %nick2) {
+      var %nick_list4 = %nick_list4 $+ $nick($1,%cnt).pnick $+ $chr(44)
+      inc %cnt
+      dec %nick
+    }
+    dde asirc_server "" [닉목록5] $asctime(yyyy.mm.dd.HH.nn.ss).mm.dd.HH.nn.ss) $1 $nick($1,0) %nick_list4
+  }
+}
+
+my_nick {
+  dde asirc_server "" [내닉네임] $me
+}
+
+this_topic {
+  var %chan = $1
+  dde asirc_server "" [현재토픽] $chan(%chan).topic
+}
+
+chan_list {
+  var %chan = $chan(0)
+  var %temp = 1
+  if (%chan > 0) {
+    while (%chan > 0) {
+      var %chan_list = %chan_list $+ $chan(%temp) $+ $chr(44) $+ $nick($chan(%temp),0) $+ $chr(44)
+      inc %temp
+      dec %chan
+    }
+    dde asirc_server "" [채널목록] %chan_list
+  }
+  else dde asirc_server "" [채널목록] n#ull
+}
+
+s.auth {
+  if ($isfile(login.ini) == $true) {
+    if ($readini(login.ini,login,auto) == 1) { 
+      .msg NickServ identify $readini(login.ini,login,id) $readini(login.ini,login,ps)
+    }
+  }
+}
+
+;; 자동조인 알리아스.
+ic.aj {
+  var %i = 1, %n = $network, %l = %n $+ $chr(48)
+  var %c = $null
+  while (%i <= %l) {
+    if ($readini(autojoin.txt,%n,%i) != $null) {
+      if (%c == $null) { %c = $readini(autojoin.txt,%n,%i) }
+      elseif (%c != $null) { %c = %c $+ $chr(44) $+ $readini(autojoin.txt,%n,%i) }
+      inc %i
+    }
+    else break
+  }
+  if (%i > 1) { j %c }
+}
+
+main_i {
+  if (($isfile($mircdirimages\logo.jpg) == $true) && ($pic($mircdirimages\logo.jpg) > 0)) {
+    if (($isfile($readini($cfgfile,사용자,시작이미지)) == $true) && ($pic($readini($cfgfile,사용자,시작이미지)) > 0)) {
+      var %si.w = $pic($readini($cfgfile,사용자,시작이미지)).width, %si.h = $pic($readini($cfgfile,사용자,시작이미지)).height
+      var %si.img = $readini($cfgfile,사용자,시작이미지)
+    }
+    else {
+      var %si.w = $pic($mircdirimages\logo.jpg).width, %si.h = $pic($mircdirimages\logo.jpg).height
+      var %si.img = $mircdirimages\logo.jpg
+      if ($isfile($readini($cfgfile,사용자,시작이미지)) == $false) { .remini $cfgfile 사용자 시작이미지 }
+    }
+    window -adhk0op +dfL @mi $calc(($window(-1).w / 2) - $int($calc(%si.w / 2))) $calc(($window(-1).h / 2) - $int($calc(%si.h / 2))) %si.w %si.h
+    drawpic @mi 0 0 " $+ %si.img $+ "
+    window -a @mi
+    .timermi 1 1 .close -@ @mi
+  }
+  else { echo -s $logo 시작 이미지를 찾을 수 없거나, 이미지가 올바르지 않습니다. }
+}
+
+say_advanced {
+  say $iif($readini($cfgfile,설정,말머리사용) == 켜짐,$sb $+ ,$null) $+ $&
+    $iif($readini($cfgfile,설정,색상) == 켜짐,$chr(3) $+ $readini($cfgfile,사용자,색상) $+ ,$null) $+ $&
+    $iif($readini($cfgfile,설정,볼드) == 켜짐,$chr(2),$null) $+ $&
+    $iif($readini($cfgfile,설정,밑줄) == 켜짐,$chr(31),$null) $+ $&
+    $iif($readini($cfgfile,설정,반전) == 켜짐,$chr(22),$null) $+ $1- $+ $&
+    $iif($readini($cfgfile,설정,말꼬리사용) == 켜짐,  $+ $se,$null)
+}
+
+pc_shutdown {
+  echo 7 -a $dspe.nk $1
+  if ($os == XP) {
+    comopen Shutdown WbemScripting.SWbemLocator
+    if ($comerr) { halt }
+    var %os.sd = $com(Shutdown,ConnectServer,3,dispatch* Services)
+    if $com(Services) {
+      var %os.sd = $com(Services,InstancesOf,3,string,Win32_OperatingSystem,dispatch* Test)
+      if $com(Test) {
+        var %os.rb = $com(Test,Win32Shutdown,1)
+        comclose Test
+      }
+      comclose Services
+    }
+    comclose Shutdown
+    ;run shutdown -s -t 00
+  }
+  else { echo -a " $+ $dll(winsd.dll,ShutDown,.) $+ " }
+  ;exit -n
+  halt
+}
+
+pc_reboot {
+  if ($os == XP) {
+    if ($com(Reboot) != $null) { .comclose Reboot }
+    if ($com(Services) != $null) { .comclose Services }
+    comopen Reboot WbemScripting.SWbemLocator
+    if ($comerr) { halt }
+    var %os.rb = $com(Reboot,ConnectServer,3,dispatch* Services)
+    if $com(Services) {
+      var %os.rb = $com(Services,InstancesOf,3,string,Win32_OperatingSystem,dispatch* Test)
+      if $com(Test) {
+        var %os.rb = $com(Test,Reboot,1)
+        comclose Test
+      }
+      comclose Services
+    }
+    comclose Reboot
+    ;run shutdown -r -t 00
+  }
+  else { echo -a " $+ $dll(winsd.dll,Restart,.) $+ " }
+  ;exit -n
+  halt
+}
+
+dde_relay { 
+  return " $+ $mircdiretc\DDE_Server.exe $+ "
+}
+
+cfgfile { return " $+ $mircdirconfig\ircconfig.dat $+ " }
+dspe.nk { return 7 $+ $timestamp < $+  $+ $gettok($gettok($read(mirc.ini,w,*$me $+ $chr(44) $+ *),2,61),2,44) $+ $me $+ 7 $+ > $+ 7 }
+config { if ($dialog(setting) == $null) { dialog -ma setting setting } | else { dialog -v setting } }
